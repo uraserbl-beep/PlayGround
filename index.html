@@ -25,39 +25,71 @@ import * as THREE from 'three';
 
 const holder=document.getElementById('game'),menu=document.getElementById('menu'),prompt=document.getElementById('prompt');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;holder.appendChild(renderer.domElement);
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x17242a);scene.fog=new THREE.FogExp2(0x26383b,.018);
-const camera=new THREE.OrthographicCamera(-16,16,9,-9,.05,100);camera.position.set(0,18,16);camera.lookAt(0,0,0);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x17242a);scene.fog=new THREE.FogExp2(0x26383b,.012);
+const camera=new THREE.OrthographicCamera(-18,18,11,-11,.05,100);camera.position.set(0,18,16);camera.lookAt(0,0,0);
 const clock=new THREE.Clock(),keys={},dir=new THREE.Vector3();let running=false,completed=0,map='helix',t=0,near=-1,hitCooldown=0;
 
 function mat(c,r=.7,m=0){return new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m})}
 function box(w,h,d,c,x=0,y=h/2,z=0,m=null){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m||mat(c));o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;scene.add(o);return o}
 
-const floor=box(30,.18,30,0x273536,0,.09,0,mat(0x3c4e4c,.72,.08));
-const grid=new THREE.GridHelper(30,30,0x36514f,0x263735);grid.position.y=.19;grid.material.opacity=.28;grid.material.transparent=true;scene.add(grid);
-for(let i=-15;i<=15;i+=3){const line=box(.025,.012,30,0x53645f,i,.205,0);line.material=mat(0x53645f,.5)}
-// walls and industrial structure
-for(const z of [-12,12]) box(30,5,.35,0x10181b,0,2.5,z);
-for(const x of [-15,15]) box(.35,5,24,0x10181b,x,2.5,0);
-for(let i=-12;i<=12;i+=6){box(.24,4.8,.24,0x263135,i,2.4,-11.82);box(.24,4.8,.24,0x263135,i,2.4,11.82)}
-for(let i=-9;i<=9;i+=4.5)box(3.8,.12,.12,0x69736d,i,4.7,11.65);
-// ceiling braces
-for(let i=-12;i<=12;i+=4){box(.12,.12,24,0x394641,i,4.85,0)}
+const floor=box(30,.18,30,0x273536,0,.09,0,mat(0x30494b,.72,.12));
+// Ana endüstriyel zemin: referanstaki 2D planın 3D izdüşümü
+const floorBands=[];
+for(let i=-13;i<=13;i+=2){const band=box(.018,.012,26,0x3f5b5b,i,.205,0);band.material=mat(i%4===0?0x496866:0x314947,.5)}
+for(let i=-11;i<=11;i+=2.2){const line=box(28,.012,.018,0x41605e,0,.208,i);line.material=mat(0x41605e,.5)}
 
-const rooms=[];
-function room(x,z,name,w=5,d=4){rooms.push({x,z,name});const shell=box(w,.18,d,0x1d292a,x,.22,z);const glass=mat(0x30413f,.25,.35);for(const px of [x-w/2+.12,x+w/2-.12]){const p=box(.1,2.4,d,0x2b3837,px,1.4,z);p.material=glass}box(w,2.5,.12,0x182225,x,1.45,z-d/2).material=mat(0x182225,.55,.3);const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.1,.32),new THREE.MeshBasicMaterial({color:0x8fd1c6,transparent:true,opacity:.7,side:THREE.DoubleSide}));sign.position.set(x,2.55,z-d/2-.065);sign.rotation.y=0;scene.add(sign);}
-room(-8,-7,'REAKTÖR',5,4);room(8,-7,'VERİ',5,4);room(-8,7,'TIBBİ',5,4);room(8,7,'ANTEN',5,4);room(0,0,'MERKEZ',4,4);
+// Koyu çelik dış çerçeve
+for(const z of [-13.2,13.2]) box(30,5,.32,0x10181b,0,2.5,z);
+for(const x of [-15,15]) box(.32,5,26.4,0x10181b,x,2.5,0);
 
-// props: pipes, crates, monitors
-for(const z of [-11,-5,1,7,11]){box(.24,.24,3.4,0x697873,-14.65,3.15,z);box(.24,.24,3.4,0x697873,14.65,3.15,z)}
-for(const [x,z] of [[-12,-2],[12,-2],[-12,4],[12,4],[-5,9],[5,-9]]){box(1.2,1,.9,0x273436,x,.7,z);box(.08,.7,.08,0xb6a66f,x-.35,1.35,z-.47)}
-for(const [x,z] of [[-8,-7],[8,-7],[8,7]]){const station=box(1.2,1.25,.7,0x1d292c,x,.62,z);const screen=new THREE.Mesh(new THREE.PlaneGeometry(.82,.48),new THREE.MeshBasicMaterial({color:0x76cbc1,transparent:true,opacity:.72}));screen.position.set(x,1.18,z+.36);scene.add(screen)}
+// Ana yatay koridorlar ve oda bölümleri
+const wallParts=[
+ [-12,-10.4,5.8,.16],[-4,-10.4,7.4,.16],[5,-10.4,6,.16],[12,-10.4,5.8,.16],
+ [-13.1,-7.6,.16,5.4],[-8.6,-7.6,.16,5.4],[-3,-7.6,.16,5.4],[2.7,-7.6,.16,5.4],[8.4,-7.6,.16,5.4],
+ [-12,-5.1,5.8,.16],[-4,-5.1,7.4,.16],[5,-5.1,6,.16],[12,-5.1,5.8,.16],
+ [-13.1,-2.5,.16,4.7],[-8.6,-2.5,.16,4.7],[-3,-2.5,.16,4.7],[2.7,-2.5,.16,4.7],[8.4,-2.5,.16,4.7],
+ [-12,.4,5.8,.16],[-4,.4,7.4,.16],[5,.4,6,.16],[12,.4,5.8,.16],
+ [-13.1,3.2,.16,5.2],[-8.6,3.2,.16,5.2],[-3,3.2,.16,5.2],[2.7,3.2,.16,5.2],[8.4,3.2,.16,5.2],
+ [-12,6.2,5.8,.16],[-4,6.2,7.4,.16],[5,6.2,6,.16],[12,6.2,5.8,.16],
+ [-13.1,9.2,.16,5.8],[-8.6,9.2,.16,5.8],[-3,9.2,.16,5.8],[2.7,9.2,.16,5.8],[8.4,9.2,.16,5.8]
+];
+for(const [x,z,w,d] of wallParts){const wall=box(w,2.25,d,0x1b292d,x,1.125,z);wall.material=mat(0x203236,.48,.24)}
 
-scene.background=new THREE.Color(0x17242a);
-scene.fog=new THREE.FogExp2(0x26383b,.018);
-const hemi=new THREE.HemisphereLight(0xd4ece8,0x7a6a58,1.35);scene.add(hemi);
-const moon=new THREE.DirectionalLight(0xffe1ba,2.8);moon.position.set(-8,16,10);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.camera.left=-18;moon.shadow.camera.right=18;moon.shadow.camera.top=18;moon.shadow.camera.bottom=-18;scene.add(moon);
-const red=new THREE.PointLight(0xff8a66,7,12,2);red.position.set(0,3.8,9);scene.add(red);
-for(const [x,z] of [[-10,-10],[10,-10],[-10,10],[10,10],[0,0]]){const light=new THREE.PointLight(0xe8fff2,5.2,12,1.7);light.position.set(x,3.5,z);scene.add(light);box(1.8,.08,.35,0x8caeaa,x,4.55,z)}
+// Reaktör kuleleri, sağdaki 2. görseli andıran mor odaklı kuleler
+function reactorTower(x,z,color,size=1){
+ const core=new THREE.Mesh(new THREE.CylinderGeometry(size*.58,size*.75,2.9,10),mat(color,.32,.42));core.position.set(x,1.55,z);core.castShadow=true;scene.add(core);
+ for(let r=0;r<3;r++){const ring=new THREE.Mesh(new THREE.TorusGeometry(size*(.74+r*.07),.035,8,24),new THREE.MeshBasicMaterial({color:r===1?0xff66d4:color,transparent:true,opacity:.88}));ring.position.set(x,1.1+r*.75,z);ring.rotation.x=Math.PI/2;scene.add(ring)}
+ const glow=new THREE.PointLight(color,11,size*8,2);glow.position.set(x,2.8,z);scene.add(glow);
+}
+reactorTower(13.4,-10.2,0xc85cff,1.05);
+reactorTower(13.4,-6.6,0xff3f82,.82);
+
+// Duvar üstü servis hatları ve borular
+for(const z of [-11.7,-8.2,-4.8,-.4,3.1,6.8,10.7]){
+ box(.12,.22,28,0x6d7f7c,0,3.55,z).material=mat(0x536b68,.3,.5)
+ for(const x of [-12,-6,0,6,12])box(.18,.18,.18,0x91aaa5,x,3.55,z)
+}
+for(const x of [-14.2,14.2])for(const z of [-10,-4,2,8])box(.16,.16,2.2,0x617875,x,3.15,z)
+
+// Odaların 3D prop'ları
+function station(x,z,c=0x76cbc1,w=1.25){const base=box(w,1,.75,0x1b292c,x,.55,z);const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*.68,.42),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.85}));screen.position.set(x,1.12,z+.39);scene.add(screen);return base}
+station(-13.7,-10.6,0x73e3ef,1.4); station(-10,-7.8,0xff6a55,1.2);
+station(-11.7,-2.8,0x55cfe2,1.5); station(-5.2,1.2,0xd27cff,1.4);
+station(1.4,8.4,0x64dbb5,1.4); station(8.8,8.8,0x54b6ff,1.4);
+station(11.8,-8.2,0x78d9cf,1.4); station(13.3,2.7,0x56aaff,1.2);
+
+// Krio kapsülleri
+for(const z of [-11,-8.8]){const tank=box(.9,2.1,.9,0x5b83a2,-14.2,1.1,z);tank.material=mat(0x73b7cb,.3,.28)}
+// Havalandırma, jeneratör ve depolar
+for(const x of [-12,-9,-6]){const crate=box(1.15,1,.9,0x273436,x,.7,10.6);crate.material=mat(0x314448,.7,.12)}
+for(const [x,z] of [[-3,10.2],[3,10.2],[9,-10.8],[12,-3]]){const crate=box(1.2,1,.9,0x273436,x,.7,z);crate.material=mat(0x314448,.7,.12)}
+
+// Sahne aydınlatması, referanstaki keskin mavi-mor ışık dağılımı
+scene.background=new THREE.Color(0x17242a);scene.fog=new THREE.FogExp2(0x26383b,.018);
+const hemi=new THREE.HemisphereLight(0xcde8ed,0x506166,1.7);scene.add(hemi);
+const moon=new THREE.DirectionalLight(0xccecff,2.8);moon.position.set(-10,18,12);moon.castShadow=true;scene.add(moon);
+const red=new THREE.PointLight(0xff5577,8,14,2);red.position.set(13,4,-9);scene.add(red);
+for(const [x,z,c] of [[-13,-11,0x84fff2],[-6,-8,0x62bfff],[0,-1,0x9bfff2],[6,-8,0x66a9ff],[12,-11,0xff58cb],[-12,8,0x7cc7ff],[0,9,0x63e5cf],[12,9,0xff56bb]]){const light=new THREE.PointLight(c,5.5,10,1.7);light.position.set(x,4,z);scene.add(light);box(1.8,.08,.35,0x93aaa6,x,4.55,z)}
 
 // suspended dust motes
 const dustGeo=new THREE.BufferGeometry(),dustPos=[];for(let i=0;i<220;i++)dustPos.push((Math.random()-.5)*28,Math.random()*5,.5+(Math.random()-.5)*24);dustGeo.setAttribute('position',new THREE.Float32BufferAttribute(dustPos,3));const dust=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0xbccfc9,size:.025,transparent:true,opacity:.38}));scene.add(dust);
@@ -90,7 +122,7 @@ function makePixelKiller(){
   for(const sx of [-1,1]){const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.92,5,8),coat);arm.position.set(sx*.64,1.55,0);arm.rotation.z=sx*.28;arm.castShadow=true;arm.name=sx<0?'KL':'KR';g.add(arm);const claw=new THREE.Mesh(new THREE.BoxGeometry(.22,.18,.38),bone);claw.position.set(sx*.74,.98,.14);claw.castShadow=true;g.add(claw);const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.82,5,8),dark);leg.position.set(sx*.25,.55,0);leg.castShadow=true;leg.name=sx<0?'KLL':'KRL';g.add(leg)}
   const eyeGlow=new THREE.PointLight(0xff354d,1.5,3);eyeGlow.position.set(0,2.38,.7);g.add(eyeGlow);g.scale.setScalar(.98);return g;
 }
-const player=makeDetective();player.position.set(0,.1,10);scene.add(player);const killer=makePixelKiller();killer.position.set(-13,.1,-9);scene.add(killer);
+const player=makeDetective();player.position.set(-13.7,.1,-10.6);scene.add(player);const killer=makePixelKiller();killer.position.set(13,.1,-10);scene.add(killer);
 const taskCatalog=[
  {key:'lock',x:-11,z:-10,name:'Güvenlik Kilidi & Kapı Aktivasyonu',icon:'⚙',room:'ÜST ENDÜSTRİYEL'},
  {key:'bio',x:-3,z:-10,name:'Biyometrik Kimlik Doğrulama',icon:'◎',room:'GÜVENLİ BAŞLANGIÇ'},
@@ -155,7 +187,7 @@ for(let i=0;i<tasks.length;i++){if(!tasks[i].done){tasks[i].ring.rotation.z=t*.7
 const kd=killer.position.distanceTo(player.position);document.getElementById('threat').textContent=kd<7?'● TEHDİT ÇOK YAKIN':kd<13?'● ANOMALİ ALGILANIyor':'● RADARDA YOK';document.getElementById('threat').style.color=kd<7?'#ff3c55':kd<13?'#d79a64':'#ca6170';dust.rotation.y=t*.015}
 
 let health=100;
-function start(){running=true;completed=0;health=100;hitCooldown=0;document.getElementById('healthBar').style.width='100%';menu.classList.add('hidden');document.getElementById('modal').classList.remove('show');player.position.set(0,.1,10);killer.position.set(-13,.1,-9);tasks.forEach((o,i)=>{o.done=false;o.ring.visible=true});renderTasks();document.body.requestPointerLock?.()}
+function start(){running=true;completed=0;health=100;hitCooldown=0;document.getElementById('healthBar').style.width='100%';menu.classList.add('hidden');document.getElementById('modal').classList.remove('show');player.position.set(-13.7,.1,-10.6);killer.position.set(13,.1,-10);tasks.forEach((o,i)=>{o.done=false;o.ring.visible=true});renderTasks();document.body.requestPointerLock?.()}
 function interact(){if(!running||near<0)return;tasks[near].done=true;tasks[near].ring.visible=false;completed++;renderTasks();if(completed>=tasks.length)end(true)}
 function end(win){running=false;document.getElementById('endTitle').textContent=win?'GÜÇ SAĞLANDI':'VARDİYA SONLANDI';document.getElementById('endText').textContent=win?'Üç kritik sistem çevrim içi. Tesis yeniden kontrol edilebilir.':'Anomali tahliye protokolünü tetikledi. Hayatta kalma kaydı bulunamadı.';document.getElementById('stamp').textContent=win?'ACİL DURUM / TAMAMLANDI':'SİNYAL / SONLANDI';document.getElementById('modal').classList.add('show')}
 

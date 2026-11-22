@@ -13,7 +13,7 @@
   <header class="topbar"><div class="brand"><div class="mark">K</div><div><strong>Karantina</strong><small>Son vardiya</small></div></div><div class="status"><span><b>●</b> Canlı kayıt</span><span id="clock">02:14:08</span></div></header>
   <aside class="hud"><div class="shift">Görev vardiyası <b id="mapName">HELIX-9</b></div><div class="objectives"><h3>PROTOKOL</h3><div id="tasks"></div></div></aside>
   <aside class="threat"><small>ANOMALİ</small><div id="threat">● RADARDA YOK</div></aside>
-  <div class="health"><small>HAYAT BULGULARI</small><div class="bar"><i id="healthBar"></i></div></div>
+  <div class="health"><small>HAYAT BULGULARI</small><div class="bar"><i id="healthBar"></i></div><small>HATA BARI</small><div class="bar mistake"><i id="mistakeBar"></i></div><div id="taskStrikes" class="status2">STRIKE 0 / 3</div></div>
   <div class="prompt" id="prompt">[ E ] GÖREVİ BAŞLAT</div>
   <div class="controls"><div class="joystick" id="joystick"><div class="stick" id="stick"></div></div><button class="interact" id="interact"><b>E</b>ETKİLEŞ</button></div>
   <section class="menu" id="menu"><div class="menu-inner"><div class="kicker">ACİL DURUM PROTOKOLÜ / 01</div><h1>İçeri gir.<br>Çıkma.</h1><p>19 vardiya görevinin tamamını çalıştır. Sistemler açılırken katilin yaklaşma ihtimalini dinle ve saklan.</p><div class="mapselect"><button class="active" data-map="helix">HELIX-9 / İSTASYON</button><button data-map="nova">NOVA-7 / LABORATUVAR</button></div><button class="start" id="start">VARDİYAYA BAŞLA　→</button></div></section>
@@ -103,12 +103,19 @@ function makeDetective(){
   const lapel=new THREE.Mesh(new THREE.BoxGeometry(.86,.78,.18),coatLight);lapel.position.set(0,1.48,.34);lapel.castShadow=true;g.add(lapel);
   const belt=new THREE.Mesh(new THREE.BoxGeometry(.78,.12,.42),ink);belt.position.set(0,.88,.02);belt.castShadow=true;g.add(belt);
   const buckle=new THREE.Mesh(new THREE.BoxGeometry(.16,.14,.46),gold);buckle.position.set(0,.88,.15);g.add(buckle);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.38,16,12),shirt);head.position.set(0,2.38,.02);head.scale.set(.86,1,.9);head.castShadow=true;g.add(head);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.40,16,12),shirt);head.position.set(0,2.42,.02);head.scale.set(.92,1,.92);head.castShadow=true;g.add(head);
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(.07,.16,7),shirt);nose.position.set(0,2.40,.39);nose.rotation.x=Math.PI/2;g.add(nose);
+  for(const sx of [-1,1]){const eye=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),ink);eye.position.set(sx*.13,2.44,.38);g.add(eye)}
   const hairCap=new THREE.Mesh(new THREE.SphereGeometry(.42,16,10,0,Math.PI*2,0,Math.PI*.58),hair);hairCap.position.set(0,2.48,-.02);hairCap.scale.set(1.12,.82,.98);hairCap.castShadow=true;g.add(hairCap);
   for(const sx of [-1,1]){const curl=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.34,4,7),hair);curl.position.set(sx*.38,2.28,.16);curl.rotation.z=sx*.38;curl.castShadow=true;g.add(curl)}
-  const brim=new THREE.Mesh(new THREE.ConeGeometry(.48,.18,12),mat(0x55301f,.65,.12));brim.position.set(0,2.72,.02);brim.rotation.x=Math.PI*.08;brim.castShadow=true;g.add(brim);
+  const brim=new THREE.Mesh(new THREE.CylinderGeometry(.66,.66,.055,16),mat(0x55301f,.65,.12));brim.position.set(0,2.69,.02);brim.castShadow=true;g.add(brim);
+  const hat=new THREE.Mesh(new THREE.CylinderGeometry(.43,.43,.18,16),mat(0x55301f,.65,.12));hat.position.set(0,2.78,.02);hat.castShadow=true;g.add(hat);
   const band=new THREE.Mesh(new THREE.BoxGeometry(.42,.10,.02),gold);band.position.set(.12,2.38,.32);g.add(band);
   const monocle=new THREE.Mesh(new THREE.TorusGeometry(.09,.018,6,12),gold);monocle.position.set(.23,2.36,.36);g.add(monocle);
+  for(let i=0;i<4;i++){for(let j=0;j<2;j++){const tile=new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.025),j%2?gold:mat(0x4e87ad,.72,.08));tile.position.set(-.18+i*.12,1.93-j*.12,.39);g.add(tile)}}
+  const scarfTail=new THREE.Mesh(new THREE.BoxGeometry(.22,.58,.10),gold);scarfTail.position.set(.28,1.63,.42);scarfTail.rotation.z=-.12;g.add(scarfTail);
+  const pack=new THREE.Mesh(new THREE.BoxGeometry(.74,.82,.26),mat(0x4b3022,.7,.1));pack.position.set(0,1.34,-.43);pack.castShadow=true;g.add(pack);
+  const lens=new THREE.Mesh(new THREE.TorusGeometry(.14,.025,6,18),gold);lens.position.set(.61,1.16,.42);g.add(lens);const handle=new THREE.Mesh(new THREE.CapsuleGeometry(.025,.28,4,8),gold);handle.position.set(.71,.91,.42);handle.rotation.z=-.72;g.add(handle);
   for(const sx of [-1,1]){const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.11,.72,5,8),coat);arm.position.set(sx*.58,1.48,0);arm.rotation.z=sx*.12;arm.castShadow=true;arm.name=sx<0?'Larm':'Rarm';g.add(arm);const hand=new THREE.Mesh(new THREE.SphereGeometry(.13,10,8),shirt);hand.position.set(sx*.63,.98,.05);g.add(hand);const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.16,.72,5,8),pants);leg.position.set(sx*.24,.58,0);leg.castShadow=true;leg.name=sx<0?'Lleg':'Rleg';g.add(leg);const shoe=new THREE.Mesh(new THREE.BoxGeometry(.28,.15,.42),boot);shoe.position.set(sx*.24,.12,.12);shoe.castShadow=true;g.add(shoe)}
   g.scale.setScalar(.92);return g;
 }
@@ -186,10 +193,32 @@ near=-1;let best=1.6;if(running)for(let i=0;i<tasks.length;i++){if(tasks[i].done
 for(let i=0;i<tasks.length;i++){if(!tasks[i].done){tasks[i].ring.rotation.z=t*.7;tasks[i].ring.scale.setScalar(1+.12*Math.sin(t*3+i))}}
 const kd=killer.position.distanceTo(player.position);document.getElementById('threat').textContent=kd<7?'● TEHDİT ÇOK YAKIN':kd<13?'● ANOMALİ ALGILANIyor':'● RADARDA YOK';document.getElementById('threat').style.color=kd<7?'#ff3c55':kd<13?'#d79a64':'#ca6170';dust.rotation.y=t*.015}
 
-let health=100;
-function start(){running=true;completed=0;health=100;hitCooldown=0;document.getElementById('healthBar').style.width='100%';menu.classList.add('hidden');document.getElementById('modal').classList.remove('show');player.position.set(-13.7,.1,-10.6);killer.position.set(13,.1,-10);tasks.forEach((o,i)=>{o.done=false;o.ring.visible=true});renderTasks();document.body.requestPointerLock?.()}
-function interact(){if(!running||near<0)return;tasks[near].done=true;tasks[near].ring.visible=false;completed++;renderTasks();if(completed>=tasks.length)end(true)}
-function end(win){running=false;document.getElementById('endTitle').textContent=win?'GÜÇ SAĞLANDI':'VARDİYA SONLANDI';document.getElementById('endText').textContent=win?'Üç kritik sistem çevrim içi. Tesis yeniden kontrol edilebilir.':'Anomali tahliye protokolünü tetikledi. Hayatta kalma kaydı bulunamadı.';document.getElementById('stamp').textContent=win?'ACİL DURUM / TAMAMLANDI':'SİNYAL / SONLANDI';document.getElementById('modal').classList.add('show')}
+let health=100,totalMistakes=0,revealUntil=0,emergencyUntil=0,taskStrikes=0;
+function start(){running=true;completed=0;health=100;totalMistakes=0;taskStrikes=0;revealUntil=0;emergencyUntil=0;hitCooldown=0;document.getElementById('healthBar').style.width='100%';document.getElementById('mistakeBar').style.width='0%';document.getElementById('taskStrikes').textContent='STRIKE 0 / 3';menu.classList.add('hidden');document.getElementById('modal').classList.remove('show');player.position.set(-13.7,.1,-10.6);killer.position.set(13,.1,-10);tasks.forEach((o,i)=>{o.done=false;o.ring.visible=true});renderTasks();document.body.requestPointerLock?.()}
+function registerMistake(){
+  totalMistakes++;taskStrikes++;
+  document.getElementById('mistakeBar').style.width=Math.min(100,totalMistakes/20*100)+'%';
+  document.getElementById('taskStrikes').textContent=`STRIKE ${taskStrikes} / 3`;
+  if(taskStrikes>=3){revealUntil=t+10;taskStrikes=0;document.getElementById('threat').textContent='● KONUM AÇIĞA ÇIKTI';document.getElementById('threat').style.color='#ff3555';setTimeout(()=>{if(running&&t>=revealUntil)document.getElementById('threat').textContent='● RADARDA YOK'},10000)}
+}
+function interact(){if(!running||near<0)return;
+  const task=tasks[near];
+  // V1 görev mini-prototipi: %25 hata olasılığıyla hata mekanizmasını test eder.
+  if(Math.random()<.16){registerMistake();return}
+  task.done=true;task.ring.visible=false;completed++;taskStrikes=0;document.getElementById('taskStrikes').textContent='STRIKE 0 / 3';renderTasks();
+  if(completed>=tasks.length)finishTasks();
+}
+function finishTasks(){
+  if(totalMistakes<20&&health>0&&hitCooldown>=0){
+    // 0 ölüm koşulu henüz; en temiz sonuç secret armory yolunu açar.
+    end(true,false,totalMistakes===0?'GİZLİ ARSENALİ AÇ':'Standart kaçış yolu açıldı');
+  }else if(totalMistakes>=20){emergencyUntil=t+120;end(true,true,'Acil tahliye podları kilitlendi. 2 dakikada açılır.');}
+}
+function end(win,emergency=false,label=''){
+  running=false;
+  document.getElementById('endTitle').textContent=win?(emergency?'ACİL TAHLİYE':'GÜÇ SAĞLANDI'):'KATİL ZAFERİ';
+  document.getElementById('endText').textContent=label||(win?'19 sistem çevrim içi. Ana çıkış açıldı.':'Anomali vardiyayı sonlandırdı.');
+  document.getElementById('stamp').textContent=win?(emergency?'ACİL DURUM / 120 SANİYE':'SİNYAL / SONLANDI'):'SONUÇ / ÖLDÜN';document.getElementById('modal').classList.add('show')}
 
 document.getElementById('start').onclick=start;document.getElementById('again').onclick=()=>{document.getElementById('modal').classList.remove('show');menu.classList.remove('hidden')};document.getElementById('interact').onclick=interact;
 document.querySelectorAll('.mapselect button').forEach(b=>b.onclick=()=>{

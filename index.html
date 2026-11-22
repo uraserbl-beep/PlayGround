@@ -16,7 +16,7 @@
   <div class="health"><small>HAYAT BULGULARI</small><div class="bar"><i id="healthBar"></i></div></div>
   <div class="prompt" id="prompt">[ E ] GÖREVİ BAŞLAT</div>
   <div class="controls"><div class="joystick" id="joystick"><div class="stick" id="stick"></div></div><button class="interact" id="interact"><b>E</b>ETKİLEŞ</button></div>
-  <section class="menu" id="menu"><div class="menu-inner"><div class="kicker">ACİL DURUM PROTOKOLÜ / 01</div><h1>İçeri gir.<br>Çıkma.</h1><p>Tesisin üç kritik sistemini yeniden aç. Işıklar sönmeden önce hareket et. Biri seni izlemiş olabilir.</p><div class="mapselect"><button class="active" data-map="helix">HELIX-9 / İSTASYON</button><button data-map="nova">NOVA-7 / LABORATUVAR</button></div><button class="start" id="start">VARDİYAYA BAŞLA　→</button></div></section>
+  <section class="menu" id="menu"><div class="menu-inner"><div class="kicker">ACİL DURUM PROTOKOLÜ / 01</div><h1>İçeri gir.<br>Çıkma.</h1><p>19 vardiya görevinin tamamını çalıştır. Sistemler açılırken katilin yaklaşma ihtimalini dinle ve saklan.</p><div class="mapselect"><button class="active" data-map="helix">HELIX-9 / İSTASYON</button><button data-map="nova">NOVA-7 / LABORATUVAR</button></div><button class="start" id="start">VARDİYAYA BAŞLA　→</button></div></section>
   <div class="modal" id="modal"><div class="modal-box"><small id="stamp">VARDİYA RAPORU</small><h2 id="endTitle">GÜÇ SAĞLANDI</h2><p id="endText">Tesisin kritik sistemleri yeniden etkin.</p><button class="start" id="again">YENİDEN BAŞLAT</button></div></div>
 </div>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/"}}</script>
@@ -91,11 +91,32 @@ function makePixelKiller(){
   const eyeGlow=new THREE.PointLight(0xff354d,1.5,3);eyeGlow.position.set(0,2.38,.7);g.add(eyeGlow);g.scale.setScalar(.98);return g;
 }
 const player=makeDetective();player.position.set(0,.1,10);scene.add(player);const killer=makePixelKiller();killer.position.set(-13,.1,-9);scene.add(killer);
-const tasks=[{p:new THREE.Vector3(-8,.1,-7),name:'REAKTÖRÜ KALİBRE ET'},{p:new THREE.Vector3(8,.1,-7),name:'VERİ ÇEKİRDEĞİNİ YÜKLE'},{p:new THREE.Vector3(8,.1,7),name:'ANTENİ ONAR'}].map((o,i)=>({...o,done:false,ring:null}));
-for(const task of tasks){const ring=new THREE.Mesh(new THREE.TorusGeometry(.58,.025,8,32),new THREE.MeshBasicMaterial({color:0x83ddd2,transparent:true,opacity:.9}));ring.position.copy(task.p);ring.position.y=.32;ring.rotation.x=Math.PI/2;scene.add(ring);task.ring=ring;const beam=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,2.4,8),new THREE.MeshBasicMaterial({color:0x83ddd2,transparent:true,opacity:.18}));beam.position.set(task.p.x,1.2,task.p.z);scene.add(beam)}
+const taskCatalog=[
+ {key:'lock',x:-11,z:-10,name:'Güvenlik Kilidi & Kapı Aktivasyonu',icon:'⚙',room:'ÜST ENDÜSTRİYEL'},
+ {key:'bio',x:-3,z:-10,name:'Biyometrik Kimlik Doğrulama',icon:'◎',room:'GÜVENLİ BAŞLANGIÇ'},
+ {key:'robot',x:-12,z:-4,name:'Robotik Kol Kalibrasyonu',icon:'⚙',room:'NANO-LAB'},
+ {key:'volt',x:-5,z:-2,name:'Yüksek Voltaj Kondansatörü',icon:'ϟ',room:'ORTA KORİDOR'},
+ {key:'reactor',x:-10,z:-7,name:'Soğutma Çekirdeği Stabilizasyonu',icon:'⚙',room:'REAKTÖR'},
+ {key:'plasma',x:-1,z:9,name:'Plazma Kalkanı Dengeleme',icon:'◈',room:'PLAZMA ODASI'},
+ {key:'waste',x:4,z:9,name:'Radyoaktif Atık Tahliyesi',icon:'☢',room:'ATIK ODASI'},
+ {key:'server',x:8,z:-7,name:'Şifreli Sunucu Veri İndirimi',icon:'▦',room:'VERİ MERKEZİ'},
+ {key:'cryo',x:12,z:-9,name:'Kriyo-Tüp Sıcaklık Ayarı',icon:'❄',room:'KRİYO-DEPO'},
+ {key:'mutagen',x:-9,z:7,name:'Mutajen Örnek Sentezi',icon:'ϟ',room:'BİYO-MÜHENDİSLİK'},
+ {key:'vent',x:-2,z:2,name:'Hava Akışı Yönlendirme',icon:'⌁',room:'HAVALANDIRMA'},
+ {key:'dna',x:1,z:7,name:'DNA Dizilimi Eşleştirme',icon:'⌬',room:'REVİR'},
+ {key:'med',x:5,z:7,name:'Acil Durum İlk Yardım Üretimi',icon:'✚',room:'REVİR'},
+ {key:'circuit',x:-12,z:10,name:'Ana Şalter & Devre Tamiri',icon:'M',room:'ELEKTRİK ODASI'},
+ {key:'radar',x:11,z:10,name:'Radar & Kamera Ağ Senkronizasyonu',icon:'⌖',room:'GÜVENLİK'},
+ {key:'sat',x:13,z:2,name:'Uydu Bağlantısı & Kaçış Sinyali',icon:'⌁',room:'SİBER KONTROL'},
+ {key:'fuel',x:11,z:-2,name:'Plazma Yakıt Çubuğu Değişimi',icon:'◆',room:'REACTOR'},
+ {key:'quantum',x:13,z:-10,name:'Kuantum Çekirdeği Ateşleme',icon:'◉',room:'KUANTUM'},
+ {key:'diesel',x:-10,z:11,name:'Yedek Jeneratörü Çalıştırma',icon:'ϟ',room:'YERALT I JENERATÖR'}
+];
+const tasks=taskCatalog.map(o=>({p:new THREE.Vector3(o.x,.1,o.z),name:o.name,icon:o.icon,room:o.room,done:false,ring:null}));
+for(const task of tasks){const ring=new THREE.Mesh(new THREE.TorusGeometry(.58,.025,8,32),new THREE.MeshBasicMaterial({color:0x83ddd2,transparent:true,opacity:.9}));ring.position.copy(task.p);ring.position.y=.32;ring.rotation.x=Math.PI/2;scene.add(ring);task.ring=ring;const beam=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,2.4,8),new THREE.MeshBasicMaterial({color:0x83ddd2,transparent:true,opacity:.18}));beam.position.set(task.p.x,1.2,task.p.z);scene.add(beam);const platform=box(.9,.08,.9,0x354744,task.p.x,.29,task.p.z);platform.material=mat(task.icon==='ϟ'?0x6ec56c:task.icon==='⚙'?0xd1944d:0x56a6a1,.55,.25)}
 
-const mapData={helix:{name:'HELIX-9',tasks:['REAKTÖRÜ KALİBRE ET','VERİ ÇEKİRDEĞİNİ YÜKLE','ANTENİ ONAR']},nova:{name:'NOVA-7',tasks:['NÜMUNEYİ ETİKETLE','SENTEZLİ GÜÇLE','ACİL SİNYALİ YAYINLA']}};
-function renderTasks(){const el=document.getElementById('tasks');el.innerHTML=tasks.map((o,i)=>`<div class="objective ${o.done?'done':''} ${i===completed?'near':''}"><span>${o.done?'◆':'◇'}</span> ${mapData[map].tasks[i]}</div>`).join('')}
+const mapData={helix:{name:'HELIX-9',tasks:tasks.map(t=>`${t.icon} ${t.room} — ${t.name}`)},nova:{name:'NOVA-7',tasks:tasks.map(t=>`${t.icon} ${t.room} — ${t.name}`)}};
+function renderTasks(){const el=document.getElementById('tasks');el.innerHTML=tasks.map((o,i)=>`<div class="objective ${o.done?'done':''} ${i===near?'near':''}"><b>${o.icon}</b><span>${o.done?'◆':'◇'}</span> ${o.name}</div>`).join('')}
 renderTasks();
 
 function animateCharacter(g,amount,time){g.children.forEach(c=>{if(c.name==='Larm'||c.name==='Rarm'||c.name==='Lleg'||c.name==='Rleg'||c.name==='KL'||c.name==='KR'||c.name==='KLL'||c.name==='KRL')c.rotation.x=Math.sin(time*(g===player?7:4)+((c.name==='Rleg'||c.name==='KRL'||c.name==='Rarm'||c.name==='KR')?Math.PI:0))*amount})}
@@ -135,7 +156,7 @@ const kd=killer.position.distanceTo(player.position);document.getElementById('th
 
 let health=100;
 function start(){running=true;completed=0;health=100;hitCooldown=0;document.getElementById('healthBar').style.width='100%';menu.classList.add('hidden');document.getElementById('modal').classList.remove('show');player.position.set(0,.1,10);killer.position.set(-13,.1,-9);tasks.forEach((o,i)=>{o.done=false;o.ring.visible=true});renderTasks();document.body.requestPointerLock?.()}
-function interact(){if(!running||near<0)return;tasks[near].done=true;tasks[near].ring.visible=false;completed++;renderTasks();if(completed>=3)end(true)}
+function interact(){if(!running||near<0)return;tasks[near].done=true;tasks[near].ring.visible=false;completed++;renderTasks();if(completed>=tasks.length)end(true)}
 function end(win){running=false;document.getElementById('endTitle').textContent=win?'GÜÇ SAĞLANDI':'VARDİYA SONLANDI';document.getElementById('endText').textContent=win?'Üç kritik sistem çevrim içi. Tesis yeniden kontrol edilebilir.':'Anomali tahliye protokolünü tetikledi. Hayatta kalma kaydı bulunamadı.';document.getElementById('stamp').textContent=win?'ACİL DURUM / TAMAMLANDI':'SİNYAL / SONLANDI';document.getElementById('modal').classList.add('show')}
 
 document.getElementById('start').onclick=start;document.getElementById('again').onclick=()=>{document.getElementById('modal').classList.remove('show');menu.classList.remove('hidden')};document.getElementById('interact').onclick=interact;
@@ -148,11 +169,7 @@ document.querySelectorAll('.mapselect button').forEach(b=>b.onclick=()=>{
   scene.fog.color.set(map==='nova'?0x100c0c:0x0a1014);
   red.intensity=map==='nova'?8:5;
   red.color.set(map==='nova'?0xff2d3f:0xb62037);
-  const positions=map==='nova'?
-    [new THREE.Vector3(-8,.1,-7),new THREE.Vector3(11,.1,2),new THREE.Vector3(-11,.1,9)]:
-    [new THREE.Vector3(-8,.1,-7),new THREE.Vector3(8,.1,-7),new THREE.Vector3(8,.1,7)];
   tasks.forEach((task,i)=>{
-    task.p.copy(positions[i]);
     task.ring.position.copy(task.p);
     task.ring.position.y=.32;
   });

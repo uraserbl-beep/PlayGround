@@ -139,7 +139,7 @@ async function fetchWithTimeout(operation, timeoutMs = SOURCE_TIMEOUT_MS) {
   }
 }
 
-module.exports = async function searchHandler(req, res) {
+async function searchHandler(req, res) {
   if (req.method !== 'POST') {
     res.set('Allow', 'POST');
     return reply(res, 405, { error: 'Only POST is supported.' });
@@ -215,6 +215,23 @@ module.exports = async function searchHandler(req, res) {
     error: 'Canlı web araması şu anda kullanılamıyor; haber kaynağına ve yedek arama katmanına ulaşılamadı.',
     code: 'LIVE_SEARCH_UNAVAILABLE',
   });
+}
+
+module.exports = searchHandler;
+
+// Vercel invokes serverless functions in-process. Keep one stable JSON contract
+// even if a runtime primitive or upstream response throws outside the source fallbacks.
+module.exports.default = async function vercelSearchHandler(req, res) {
+  try {
+    await searchHandler(req, res);
+  } catch (error) {
+    if (!res.headersSent) {
+      reply(res, 502, {
+        error: 'Arama işlevinde beklenmeyen bir hata oluştu; kontrolsüz bir 500 hatasına dönüşmedi.',
+        code: 'SEARCH_HANDLER_ERROR',
+      });
+    }
+  }
 };
 
 function rssSearchResult(xml, count) {

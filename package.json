@@ -1,0 +1,11 @@
+{
+  "name": "foverse-ai",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/search.test.js test/server.test.js"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}

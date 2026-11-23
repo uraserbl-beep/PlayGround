@@ -16,3 +16,12 @@
 - 👤 [Explore the creator's projects](https://go.ondev.store/uraserbl-beep).
 - 🌍 [Create with OMGithub](https://go.ondev.store/).
 <!-- omgithub:readme:end -->
+
+## Web search setup
+
+The `/api/search` serverless endpoint uses Google Custom Search. Configure these environment variables on a Node/serverless deployment that supports the `api/` directory:
+
+- `GOOGLE_SEARCH_API_KEY`
+- `GOOGLE_SEARCH_CX`
+
+The credentials stay on the server and are never sent to the browser. The endpoint accepts POST requests, limits queries to 500 characters and results to 8, and applies an 8-second upstream timeout. Run the endpoint's isolated validation tests with `node --test test/search.test.js`. Static-only hosting does not run this endpoint; in that case the assistant will say that live web verification is unavailable.

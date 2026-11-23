@@ -53,6 +53,33 @@
       .top-right{max-width:42vw}
       .story-meta{align-items:flex-start}
     }
+    .quick-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(135deg,#102235,#0d1a29)}
+    .quick-entry p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    .quick-entry .primary{height:38px;white-space:nowrap}
+    .analyze-modal{position:fixed;inset:0;z-index:20;display:none;place-items:center;padding:18px;background:#020811cc;backdrop-filter:blur(8px)}
+    .analyze-modal.open{display:grid}
+    .analyze-shell{width:min(760px,100%);max-height:calc(100vh - 36px);overflow:auto;border:1px solid #2a4a60;border-radius:16px;background:#0d1a29;box-shadow:0 24px 80px #0009}
+    .analyze-head,.analyze-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px}
+    .analyze-head{border-bottom:1px solid var(--line)}
+    .analyze-head h3{margin:0;font-size:16px}
+    .close-modal{width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:#102235;font-size:18px}
+    .analyze-body{padding:18px}
+    .analyze-body label{display:block;margin-bottom:8px;color:var(--cyan);font-size:11px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+    .analyze-body textarea{width:100%;min-height:170px;resize:vertical;border:1px solid #254158;border-radius:10px;background:#081521;color:var(--text);padding:12px;line-height:1.55}
+    .analyze-body textarea:focus{outline:2px solid #69e0d055;border-color:var(--cyan)}
+    .analyze-actions{border-top:1px solid var(--line);justify-content:flex-end}
+    .analyze-actions button{height:38px}
+    .secondary{border:1px solid var(--line);border-radius:8px;background:#102235;padding:0 14px}
+    .analyze-result{margin-top:14px}
+    @media(max-width:600px){
+      .quick-entry{align-items:flex-start}
+      .quick-entry .primary{height:auto;padding:9px 11px}
+      .analyze-modal{padding:8px}
+      .analyze-shell{max-height:calc(100vh - 16px)}
+      .analyze-head,.analyze-actions{padding:12px}
+      .analyze-body{padding:12px}
+      .analyze-body textarea{min-height:150px}
+    }
   </style>
 </head>
 <body>
@@ -64,6 +91,7 @@
     <section class="hero"><div><div class="eyebrow">JARVIS · HABER ANALİZİ</div><h2>Gündemi netleştir.</h2><p>Kaynağı izle, bağlamı gör, doğrulanmamış bilgiyi ayırt et.</p></div>
       <form class="search" id="searchForm"><label class="sr-only" for="query">Haber ara</label><input id="query" placeholder="Örn. yapay zekâ, ekonomi, dünya gündemi…" autocomplete="off"><button id="searchButton" type="submit">Ara ↗</button></form>
     </section>
+    <div class="quick-entry"><div><strong>Hızlı Veri Girişi</strong><p>haberler.com metnini veya başlığını yapıştır; analiz tamamen bu cihazda yapılsın.</p></div><button class="primary" id="openAnalyze" type="button">Analiz Et ＋</button></div>
     <div class="grid">
       <section class="left">
         <div class="statusbar" aria-label="Durum raporu">
@@ -85,6 +113,18 @@
     </div>
     <div class="notice"><strong>Şeffaflık:</strong> Sarı <b>[ÖRNEK VERİ]</b> etiketi taşıyan tüm kayıtlar kurgusal arayüz testidir. Bunlar haber, olay veya gerçek kişi iddiası değildir.</div>
   </main>
+  <div class="analyze-modal" id="analyzeModal" role="dialog" aria-modal="true" aria-labelledby="analyzeTitle">
+    <div class="analyze-shell">
+      <div class="analyze-head"><h3 id="analyzeTitle">Hızlı Veri Girişi / Analiz Et</h3><button class="close-modal" id="closeAnalyze" type="button" aria-label="Analiz penceresini kapat">×</button></div>
+      <div class="analyze-body">
+        <label for="newsText">Haber metni veya başlığı</label>
+        <textarea id="newsText" maxlength="12000" placeholder="Haberler.com'dan kopyaladığın başlık veya metni buraya yapıştır…"></textarea>
+        <p class="notice"><strong>Doğrulama sınırı:</strong> Bu metin dış ağ olmadan yalnızca cihaza ait tarayıcıda analiz edilir. Yapılan kategori/özet; kaynağın doğrulanmadığını belirtir.</p>
+        <div class="analyze-result" id="analyzeResult" aria-live="polite"></div>
+      </div>
+      <div class="analyze-actions"><button class="secondary" id="clearAnalyze" type="button">Temizle</button><button class="primary" id="runAnalyze" type="button">Analiz Et</button></div>
+    </div>
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script>
     'use strict';
@@ -125,9 +165,35 @@
       finally{button.disabled=false;button.textContent='Ara ↗'}
     }
     function categoryFor(text){const value=text.toLocaleLowerCase('tr-TR');if(/teknoloji|yapay zek|yazılım|telefon|çip|robot/.test(value))return'Teknoloji';if(/ekonomi|finans|borsa|piyasa|enflasyon/.test(value))return'Ekonomi';if(/bilim|araştırma|uzay|üniversite/.test(value))return'Bilim';if(/spor|futbol|basketbol/.test(value))return'Spor';if(/kültür|sanat|film/.test(value))return'Kültür';if(/türkiye|ankara|istanbul/.test(value))return'Türkiye';return'Dünya'}
+    function summarizeLocalText(text){
+      const clean=text.replace(/\s+/g,' ').trim();
+      const sentences=clean.split(/[.!?]+/).map(part=>part.trim()).filter(Boolean);
+      const summary=sentences.slice(0,2).join('. ').slice(0,260)+(sentences.length>2||clean.length>260?'…':'');
+      const title=(sentences[0]||clean).slice(0,140)+(sentences[0]?.length>140?'…':'');
+      const category=categoryFor(clean);
+      return{title,summary:summary||clean.slice(0,260),category,who:'Metinde açık bir kişi/kurum bulunmadı',what:title,where:'Metin ayrıca doğrulanmadı',when:'Yayın zamanı metinde belirtilmedi',why:'Metinden kesin neden çıkarılamadı',how:'Metin içinden otomatik yöntem bilgisi çıkarılmadı'};
+    }
+    function openAnalyze(){ $('analyzeModal').classList.add('open'); $('newsText').focus(); }
+    function closeAnalyze(){ $('analyzeModal').classList.remove('open'); }
+    function runLocalAnalysis(){
+      const text=$('newsText').value.trim();
+      if(text.length<10){$('analyzeResult').innerHTML='<div class="notice"><strong>Metin eksik.</strong> Analiz için en az 10 karakterlik bir başlık veya haber metni gir.</div>';return}
+      const result=summarizeLocalText(text);
+      const record={id:'local-'+Date.now(),sample:false,local:true,source:'Kullanıcı tarafından yapıştırıldı',time:'Yerel analiz · gerçek zaman doğrulanmadı',category:result.category,title:'[KULLANICI METNİ] '+result.title,summary:result.summary,who:result.who,what:result.what,where:result.where,when:result.when,why:result.why,how:result.how};
+      records=[record];liveMode=true;activeCategory='Tümü';
+      $('connectionLabel').textContent='YEREL ANALİZ';$('statusState').textContent='Metin yerel analiz edildi';$('sourceState').textContent='Kaynak doğrulanmadı';$('feedInfo').textContent='1 kullanıcı kaydı · dış doğrulama yapılmadı';$('lastCheck').textContent=new Intl.DateTimeFormat('tr-TR',{hour:'2-digit',minute:'2-digit'}).format(new Date());
+      $('analyzeResult').innerHTML=`<div class="signal"><b><span class="bullet">●</span>[Kategori] ${escapeHtml(result.category)}</b><p><strong>5N1K özeti:</strong> Kim: ${escapeHtml(result.who)} · Ne: ${escapeHtml(result.what)} · Nerede: ${escapeHtml(result.where)} · Ne zaman: ${escapeHtml(result.when)} · Neden: ${escapeHtml(result.why)} · Nasıl: ${escapeHtml(result.how)}</p></div><div class="signal"><b><span class="bullet">●</span>Yapay Zekâ Çıkarımı</b><p>Yerel metin bağlamında ${escapeHtml(result.category)} sinyali algılandı. Bu sonuç, kullanıcı metninden oluşturulmuş bir özet/çıkarımdır; gerçek haber veya doğrulanmış veri olarak kabul edilmez.</p></div>`;
+      $('inference').innerHTML=$('analyzeResult').innerHTML+'<div class="signal"><b><span class="bullet">●</span>Doğrulama sınırı</b><p>Kaynak, içerik ve gerçeklik doğrulaması yapılmadı. Tamamlanmış gerçek haber iddiası üretilmemelidir.</p></div>';
+      renderFilters();renderFeed();toast('Metin yerel olarak analiz edildi.');
+    }
     $('searchForm').addEventListener('submit',event=>{event.preventDefault();const query=$('query').value.trim();if(!query){$('query').focus();toast('Aramak için bir konu yaz.');return}searchNews(query)});
     $('filters').addEventListener('click',event=>{const button=event.target.closest('[data-category]');if(!button)return;activeCategory=button.dataset.category;renderFilters();renderFeed()});
     $('feed').addEventListener('click',event=>{const button=event.target.closest('.detail-btn');if(!button)return;const card=button.closest('.story');const open=card.classList.toggle('open');button.setAttribute('aria-expanded',String(open));button.textContent=open?'5N1K özetini kapat −':'5N1K özeti ＋'});
+    $('openAnalyze').addEventListener('click',openAnalyze);
+    $('closeAnalyze').addEventListener('click',closeAnalyze);
+    $('clearAnalyze').addEventListener('click',()=>{$('newsText').value='';$('analyzeResult').innerHTML='';$('newsText').focus()});
+    $('runAnalyze').addEventListener('click',runLocalAnalysis);
+    $('analyzeModal').addEventListener('click',event=>{if(event.target&&event.target.id==='analyzeModal')closeAnalyze()});
     renderFilters();renderFeed();updateClock();setInterval(updateClock,30000);
   </script>
 </body>

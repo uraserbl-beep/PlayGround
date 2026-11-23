@@ -36,9 +36,19 @@ test('topic failure copy is honest and never uses generic clarification prompts'
 
 test('news detail requests are focused instead of generic topic searches', () => {
   assert.equal(intent.isNewsDetailRequest('Türkiyenin nato için önemli rol üstlenmesi haberi hakkında biraz daha detay verir misin?'), true);
-  assert.equal(intent.detailSearchQuery('Türkiyenin nato için önemli rol üstlenmesi haberi hakkında biraz daha detay verir misin?'), 'Türkiyenin nato için önemli rol üstlenmesi');
+  assert.equal(intent.detailSearchQuery('Türkiyenin nato için önemli rol üstlenmesi haberi hakkında biraz daha detay verir misin?'), 'Türkiyenin nato önemli rol üstlenmesi');
   assert.equal(intent.isNewsDetailRequest('8. Haber hakkında biraz daha detay verirmisin?'), true);
   assert.doesNotMatch(intent.searchQuery('Türkiyenin nato için önemli rol üstlenmesi haberi hakkında biraz daha detay verir misin?'), /gündem son dakika/i);
+
+  assert.equal(intent.detailSearchQuery('SON DAKİKA | 3. Türkiye NATO Zirvesi Trump Türkiye hakkında detay'), 'Türkiye NATO Zirvesi Trump Türkiye');
+  assert.deepEqual(intent.detailSearchQueries('SON DAKİKA | Türkiye NATO Zirvesi Trump Türkiye haberi hakkında detay'), ['Türkiye NATO Zirvesi Trump Türkiye', 'NATO Zirvesi Trump Türkiye']);
+});
+
+test('detail failure copy names the subject and avoids fabrication', () => {
+  const message = intent.failureMessage('Haber detayı Türkiye NATO Zirvesi Trump Türkiye');
+  assert.match(message, /Türkiye NATO Zirvesi Trump Türkiye/);
+  assert.match(message, /doğrulayamadım|erişilemiyor/);
+  assert.doesNotMatch(message, /doğrulanmış bilgi olarak|Soruyu|hangi haber/i);
 });
 
 test('numbered follow-up resolves the previous item title and searches it specifically', () => {

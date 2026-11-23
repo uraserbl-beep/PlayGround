@@ -32,7 +32,9 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
   });
   assert.equal(response.status, 503);
   assert.notEqual(response.status, 404);
-  assert.match((await response.json()).error, /yapılandırılmamış/);
+  const payload = await response.json();
+  assert.match(payload.error, /Canlı web araması şu anda kullanılamıyor/);
+  assert.equal(payload.code, 'SEARCH_NOT_CONFIGURED');
 
   const methodResponse = await fetch(`${origin}/api/search`);
   assert.equal(methodResponse.status, 405);

@@ -184,7 +184,55 @@ test('uses RSS after another upstream Google failure', async () => {
   });
 });
 
-test('returns a gateway error when both upstream sources abort', async () => {
+test('uses keyless GDELT when Google Search and Google News RSS are unavailable', async () => {
+  const previousKey = process.env.GOOGLE_SEARCH_API_KEY;
+  const previousCx = process.env.GOOGLE_SEARCH_CX;
+  process.env.GOOGLE_SEARCH_API_KEY = 'test-key';
+  process.env.GOOGLE_SEARCH_CX = 'test-cx';
+  const originalFetch = global.fetch;
+  const requestedUrls = [];
+  global.fetch = async (url) => {
+    const parsedUrl = new URL(url);
+    requestedUrls.push(parsedUrl);
+    if (parsedUrl.hostname === 'www.googleapis.com' || parsedUrl.hostname === 'news.google.com') {
+      return { ok: false, status: 503 };
+    }
+    if (parsedUrl.hostname === 'api.gdeltproject.org') {
+      return {
+        ok: true,
+        async json() {
+          return { articles: [{
+            title: 'Güncel haber başlığı',
+            url: 'https://example.com/news/1',
+            domain: 'example.com',
+            seendate: '20261123T120000Z',
+            snippet: 'Haber özeti',
+          }] };
+        },
+      };
+    }
+    throw new Error(`Unexpected upstream: ${parsedUrl.hostname}`);
+  };
+  try {
+    const res = await invoke({ query: 'gündemde ne var', count: 3 });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.payload.source, 'gdelt');
+    assert.equal(res.payload.query, 'Türkiye ve dünya gündem son dakika haberleri');
+    assert.deepEqual(requestedUrls.map((url) => url.hostname), ['www.googleapis.com', 'news.google.com', 'api.gdeltproject.org']);
+    assert.equal(requestedUrls[2].searchParams.get('query'), res.payload.query);
+    assert.equal(requestedUrls[2].searchParams.get('maxrecords'), '3');
+    assert.equal(res.payload.items[0].title, 'Güncel haber başlığı');
+    assert.equal(res.payload.items[0].source, 'example.com');
+  } finally {
+    global.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;
+    else process.env.GOOGLE_SEARCH_API_KEY = previousKey;
+    if (previousCx === undefined) delete process.env.GOOGLE_SEARCH_CX;
+    else process.env.GOOGLE_SEARCH_CX = previousCx;
+  }
+});
+
+test('returns a gateway error when all upstream sources abort', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;
     global.fetch = async () => {

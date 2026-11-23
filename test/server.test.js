@@ -9,6 +9,18 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
   const previousCx = process.env.GOOGLE_SEARCH_CX;
   delete process.env.GOOGLE_SEARCH_API_KEY;
   delete process.env.GOOGLE_SEARCH_CX;
+  const originalFetch = global.fetch;
+  global.fetch = async (input, options) => {
+    if (new URL(input).hostname === 'news.google.com') {
+      return {
+        ok: true,
+        async text() {
+          return '<rss><channel><item><title>Smoke test - Local fixture</title><link>https://example.com/smoke</link><description>Fixture result</description></item></channel></rss>';
+        },
+      };
+    }
+    return originalFetch(input, options);
+  };
 
   const server = createServer();
   server.listen(0, '127.0.0.1');
@@ -18,6 +30,7 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
   });
   t.after(() => new Promise((resolve, reject) => {
     server.close((error) => error ? reject(error) : resolve());
+    global.fetch = originalFetch;
     if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;
     else process.env.GOOGLE_SEARCH_API_KEY = previousKey;
     if (previousCx === undefined) delete process.env.GOOGLE_SEARCH_CX;
@@ -25,6 +38,11 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
   }));
 
   const origin = `http://127.0.0.1:${server.address().port}`;
+  const homeResponse = await fetch(`${origin}/`);
+  assert.equal(homeResponse.status, 200);
+  assert.match(homeResponse.headers.get('content-type'), /text\/html/);
+  assert.match(await homeResponse.text(), /<!doctype html>/i);
+
   const response = await fetch(`${origin}/api/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

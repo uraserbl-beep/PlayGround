@@ -45,6 +45,13 @@ module.exports = async function searchHandler(req, res) {
       signal: controller.signal,
     });
     if (!response.ok) {
+      // Do not retry or attempt to work around provider access controls or rate limits.
+      if (response.status === 403) {
+        return reply(res, 502, { error: 'Kaynak erişim kısıtı nedeniyle canlı arama doğrulanamadı.' });
+      }
+      if (response.status === 429) {
+        return reply(res, 503, { error: 'Arama sağlayıcısı istek sınırına ulaştı; canlı arama doğrulanamadı.' });
+      }
       return reply(res, 502, { error: 'Arama sağlayıcısı şu anda yanıt veremiyor.' });
     }
 

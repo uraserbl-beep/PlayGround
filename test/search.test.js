@@ -60,7 +60,9 @@ test('reports missing server credentials without calling Google', async () => {
   try {
     const res = await invoke({ query: 'latest news' });
     assert.equal(res.statusCode, 503);
-    assert.match(res.payload.error, /yapılandırılmamış/);
+    assert.match(res.payload.error, /Canlı web araması şu anda kullanılamıyor/);
+    assert.match(res.payload.error, /güncel kaynakları doğrulayamam/);
+    assert.equal(res.payload.code, 'SEARCH_NOT_CONFIGURED');
   } finally {
     global.fetch = originalFetch;
     if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;

@@ -17,7 +17,10 @@ module.exports = async function searchHandler(req, res) {
   const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
   const searchEngineId = process.env.GOOGLE_SEARCH_CX;
   if (!apiKey || !searchEngineId) {
-    return reply(res, 503, { error: 'Web araması sunucuda yapılandırılmamış.' });
+    return reply(res, 503, {
+      error: 'Canlı web araması şu anda kullanılamıyor: sunucuda Google arama yapılandırması eksik. Genel bilgi verebilirim ancak güncel kaynakları doğrulayamam.',
+      code: 'SEARCH_NOT_CONFIGURED',
+    });
   }
 
   let body = req.body;

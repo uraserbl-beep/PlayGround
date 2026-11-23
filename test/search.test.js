@@ -50,19 +50,28 @@ test('rejects non-POST requests without calling Google', async () => {
   }
 });
 
-test('reports missing server credentials without calling Google', async () => {
+test('uses Google News RSS when server credentials are missing', async () => {
   const previousKey = process.env.GOOGLE_SEARCH_API_KEY;
   const previousCx = process.env.GOOGLE_SEARCH_CX;
   delete process.env.GOOGLE_SEARCH_API_KEY;
   delete process.env.GOOGLE_SEARCH_CX;
   const originalFetch = global.fetch;
-  global.fetch = async () => { throw new Error('fetch should not run'); };
+  let requestedUrl;
+  global.fetch = async (url) => {
+    requestedUrl = new URL(url);
+    return {
+      ok: true,
+      async text() { return '<rss><channel><item><title>Önemli gelişme - Örnek Kaynak</title><link>https://example.com/haber/1</link><description>Güncel haber özeti</description><pubDate>Mon, 23 Nov 2026 12:00:00 GMT</pubDate></item></channel></rss>'; },
+    };
+  };
   try {
-    const res = await invoke({ query: 'latest news' });
-    assert.equal(res.statusCode, 503);
-    assert.match(res.payload.error, /Canlı web araması şu anda kullanılamıyor/);
-    assert.match(res.payload.error, /güncel kaynakları doğrulayamam/);
-    assert.equal(res.payload.code, 'SEARCH_NOT_CONFIGURED');
+    const res = await invoke({ query: 'Gündemde ne var' });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.payload.source, 'google_news_rss');
+    assert.equal(requestedUrl.hostname, 'news.google.com');
+    assert.equal(requestedUrl.searchParams.get('q'), 'Türkiye ve dünya gündem son dakika haberleri');
+    assert.equal(res.payload.items[0].title, 'Önemli gelişme');
+    assert.equal(res.payload.items[0].url, 'https://example.com/haber/1');
   } finally {
     global.fetch = originalFetch;
     if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;
@@ -118,77 +127,77 @@ test('returns bounded, HTTP(S)-only Google results', async () => {
   });
 });
 
-test('maps upstream 403 access restrictions to a safe error', async () => {
+test('falls back to RSS after an upstream 403 access restriction', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;
-    global.fetch = async () => ({ ok: false, status: 403 });
+    let calls = 0;
+    global.fetch = async (url) => {
+      calls += 1;
+      if (String(url).includes('googleapis.com')) return { ok: false, status: 403 };
+      return { ok: true, async text() { return '<rss><channel><item><title>Fallback haber - Kaynak</title><link>https://example.com/fallback</link><description>Özet</description></item></channel></rss>'; } };
+    };
     try {
       const res = await invoke({ query: 'test query' });
-      assert.equal(res.statusCode, 502);
-      assert.match(res.payload.error, /erişim kısıtı/);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.payload.source, 'google_news_rss');
+      assert.equal(calls, 2);
     } finally {
       global.fetch = originalFetch;
     }
   });
 });
 
-test('maps upstream 429 rate limits without retrying', async () => {
+test('falls back to RSS after an upstream 429 rate limit', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;
     let fetchCount = 0;
-    global.fetch = async () => {
+    global.fetch = async (url) => {
       fetchCount += 1;
-      return { ok: false, status: 429 };
+      if (String(url).includes('googleapis.com')) return { ok: false, status: 429 };
+      return { ok: true, async text() { return '<rss><channel><item><title>Rate-limit fallback - Kaynak</title><link>https://example.com/fallback</link></item></channel></rss>'; } };
     };
     try {
       const res = await invoke({ query: 'test query' });
-      assert.equal(res.statusCode, 503);
-      assert.match(res.payload.error, /istek sınırına/);
-      assert.equal(fetchCount, 1);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.payload.source, 'google_news_rss');
+      assert.equal(fetchCount, 2);
     } finally {
       global.fetch = originalFetch;
     }
   });
 });
 
-test('maps other upstream failures to a safe gateway error', async () => {
+test('uses RSS after another upstream Google failure', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;
-    global.fetch = async () => ({ ok: false, status: 500 });
+    global.fetch = async (url) => {
+      if (String(url).includes('googleapis.com')) return { ok: false, status: 500 };
+      return { ok: true, async text() { return '<rss><channel><item><title>Fallback - Kaynak</title><link>https://example.com/fallback</link></item></channel></rss>'; } };
+    };
     try {
       const res = await invoke({ query: 'test query' });
-      assert.equal(res.statusCode, 502);
-      assert.match(res.payload.error, /yanıt veremiyor/);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.payload.source, 'google_news_rss');
     } finally {
       global.fetch = originalFetch;
     }
   });
 });
 
-test('returns a gateway timeout when the upstream request aborts', async () => {
+test('returns a gateway error when both upstream sources abort', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;
-    const originalSetTimeout = global.setTimeout;
-    const originalClearTimeout = global.clearTimeout;
-    global.setTimeout = (callback) => {
-      callback();
-      return 1;
-    };
-    global.clearTimeout = () => {};
-    global.fetch = async (_url, options) => {
-      assert.equal(options.signal.aborted, true);
+    global.fetch = async () => {
       const error = new Error('aborted');
       error.name = 'AbortError';
       throw error;
     };
     try {
       const res = await invoke({ query: 'test query' });
-      assert.equal(res.statusCode, 504);
-      assert.match(res.payload.error, /zaman aşımına/);
+      assert.equal(res.statusCode, 502);
+      assert.equal(res.payload.code, 'LIVE_SEARCH_UNAVAILABLE');
     } finally {
       global.fetch = originalFetch;
-      global.setTimeout = originalSetTimeout;
-      global.clearTimeout = originalClearTimeout;
     }
   });
 });

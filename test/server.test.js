@@ -30,11 +30,14 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: 'route smoke test' }),
   });
-  assert.equal(response.status, 503);
   assert.notEqual(response.status, 404);
+  assert.ok([200, 502].includes(response.status));
   const payload = await response.json();
-  assert.match(payload.error, /Canlı web araması şu anda kullanılamıyor/);
-  assert.equal(payload.code, 'SEARCH_NOT_CONFIGURED');
+  if (response.status === 502) {
+    assert.equal(payload.code, 'LIVE_SEARCH_UNAVAILABLE');
+  } else {
+    assert.ok(Array.isArray(payload.items));
+  }
 
   const methodResponse = await fetch(`${origin}/api/search`);
   assert.equal(methodResponse.status, 405);

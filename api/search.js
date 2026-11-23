@@ -161,7 +161,14 @@ module.exports = async function searchHandler(req, res) {
     });
     if (items.length) return reply(res, 200, { items, source: 'google_news_rss', query });
   } catch (_) {
-    // Return a clean fallback only after both sources are exhausted.
+    // Continue to the independent, keyless GDELT article API.
+  }
+
+  try {
+    const items = await fetchWithTimeout((signal) => gdeltSearch(query, count, signal));
+    if (items.length) return reply(res, 200, { items, source: 'gdelt', query });
+  } catch (_) {
+    // Return a clean fallback only after all configured sources are exhausted.
   }
 
   return reply(res, 502, {
@@ -190,4 +197,33 @@ function rssSearchResult(xml, count) {
     if (items.length >= count) break;
   }
   return items;
+}
+
+async function gdeltSearch(query, count, signal) {
+  const params = new URLSearchParams({
+    query,
+    mode: 'ArtList',
+    format: 'json',
+    maxrecords: String(count),
+    sort: 'HybridRel',
+  });
+  const response = await fetch(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json', 'User-Agent': 'Gemini-Search-App/1.0' },
+    signal,
+  });
+  if (!response.ok) throw new Error(`GDELT search failed: ${response.status}`);
+  const data = await response.json();
+  return (Array.isArray(data.articles) ? data.articles : []).slice(0, count).map((article) => {
+    const url = validHttpUrl(article.url);
+    let source = cleanText(article.domain);
+    try { if (!source && url) source = cleanText(new URL(url).hostname); } catch {}
+    return {
+      title: cleanText(article.title || 'Kaynak').slice(0, 300),
+      url,
+      snippet: cleanText(article.snippet || '').slice(0, 1200),
+      source: source.slice(0, 200),
+      date: cleanText(article.seendate || article.datetime || '').slice(0, 100),
+    };
+  }).filter((item) => item.title && item.url);
 }

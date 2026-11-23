@@ -16,7 +16,7 @@ function createResponse() {
 }
 
 async function invoke(body, method = 'POST') {
-  const req = { method, body };
+  const req = { method, body, query: method === 'GET' ? body : undefined };
   const res = createResponse();
   await searchHandler(req, res);
   return res;
@@ -37,16 +37,41 @@ async function withCredentials(fn) {
   }
 }
 
-test('rejects non-POST requests without calling Google', async () => {
+test('rejects unsupported methods without calling Google', async () => {
   const originalFetch = global.fetch;
   global.fetch = async () => { throw new Error('fetch should not run'); };
   try {
-    const res = await invoke({}, 'GET');
+    const res = await invoke({}, 'PUT');
     assert.equal(res.statusCode, 405);
-    assert.equal(res.headers.Allow, 'POST');
+    assert.equal(res.headers.Allow, 'GET, POST');
     assert.equal(res.headers['Cache-Control'], 'no-store');
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+test('supports GET queries from the q parameter', async () => {
+  const previousKey = process.env.GOOGLE_SEARCH_API_KEY;
+  const previousCx = process.env.GOOGLE_SEARCH_CX;
+  delete process.env.GOOGLE_SEARCH_API_KEY;
+  delete process.env.GOOGLE_SEARCH_CX;
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    async text() { return '<rss><channel><item><title>Gündem haberi - Örnek</title><link>https://example.com/gundem</link></item></channel></rss>'; },
+  });
+  try {
+    const res = await invoke({ q: 'gundem' }, 'GET');
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.payload.source, 'google_news_rss');
+    assert.equal(res.payload.query, 'Türkiye ve dünya gündem son dakika haberleri');
+    assert.ok(Array.isArray(res.payload.items));
+  } finally {
+    global.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;
+    else process.env.GOOGLE_SEARCH_API_KEY = previousKey;
+    if (previousCx === undefined) delete process.env.GOOGLE_SEARCH_CX;
+    else process.env.GOOGLE_SEARCH_CX = previousCx;
   }
 });
 

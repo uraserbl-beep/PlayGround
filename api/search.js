@@ -139,13 +139,24 @@ async function fetchWithTimeout(operation, timeoutMs = SOURCE_TIMEOUT_MS) {
   }
 }
 
-async function searchHandler(req, res) {
-  if (req.method !== 'POST') {
-    res.set('Allow', 'POST');
-    return reply(res, 405, { error: 'Only POST is supported.' });
+module.exports = async function handler(req, res) {
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    res.set('Allow', 'GET, POST');
+    return reply(res, 405, { error: 'Only GET and POST are supported.' });
   }
 
   let body = req.body;
+  if (req.method === 'GET') {
+    const queryParams = req.query || {};
+    let query = queryParams.q ?? queryParams.query;
+    if (query === undefined && typeof req.url === 'string') {
+      try {
+        const url = new URL(req.url, 'http://localhost');
+        query = url.searchParams.get('q') ?? url.searchParams.get('query');
+      } catch {}
+    }
+    body = { query, count: queryParams.count };
+  }
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch { return reply(res, 400, { error: 'Geçersiz istek gövdesi.' }); }
   }
@@ -216,8 +227,6 @@ async function searchHandler(req, res) {
     code: 'LIVE_SEARCH_UNAVAILABLE',
   });
 }
-
-module.exports = searchHandler;
 
 function rssSearchResult(xml, count) {
   const items = [];

@@ -57,9 +57,9 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
     assert.ok(Array.isArray(payload.items));
   }
 
-  const methodResponse = await fetch(`${origin}/api/search`);
-  assert.equal(methodResponse.status, 405);
-  assert.equal(methodResponse.headers.get('allow'), 'POST');
+  const getResponse = await fetch(`${origin}/api/search?q=gundem`);
+  assert.equal(getResponse.status, 200);
+  assert.ok(Array.isArray((await getResponse.json()).items));
 
   const unknownRoute = await fetch(`${origin}/api/unknown`);
   assert.equal(unknownRoute.status, 404);

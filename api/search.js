@@ -25,7 +25,7 @@ function cleanText(value) {
 function buildMeaningfulQuery(raw) {
   let query = String(raw || '').replace(/\s+/g, ' ').trim();
   const normalized = query.toLocaleLowerCase('tr-TR').replace(/[?!.]+$/g, '').trim();
-  if (/^(gündemde ne var|gundemde ne var|bugün neler oldu|bugun neler oldu|son gelişmeler|son gelismeler|haberler|güncel haberler|guncel haberler)$/.test(normalized)) {
+  if (/^(gündemde ne var|gundemde ne var|gündem|gundem|günse|gunse|bugün neler oldu|bugun neler oldu|son gelişmeler|son gelismeler|haberler|güncel haberler|guncel haberler)$/.test(normalized)) {
     return 'Türkiye ve dünya gündem son dakika haberleri';
   }
   return query

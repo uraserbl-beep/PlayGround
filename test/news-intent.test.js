@@ -7,11 +7,78 @@ const path = require('node:path');
 const vm = require('node:vm');
 const intent = require('../news-intent');
 
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const exactPrompts = [
   'Selam gündemde ne var?',
   'Siyaset',
   'Dünyada neler olduğunu öğrenmek istiyorum',
 ];
+
+class FakeElement {
+  constructor(id) {
+    this.id = id;
+    this.innerHTML = '';
+    this.textContent = '';
+    this.value = '';
+    this.disabled = false;
+    this.dataset = {};
+    this.handlers = {};
+    this.attributes = {};
+    this.classes = new Set();
+    this.classList = {
+      add: (name) => this.classes.add(name),
+      remove: (name) => this.classes.delete(name),
+      toggle: (name) => {
+        if (this.classes.has(name)) {
+          this.classes.delete(name);
+          return false;
+        }
+        this.classes.add(name);
+        return true;
+      },
+      contains: (name) => this.classes.has(name),
+    };
+  }
+
+  addEventListener(type, handler) {
+    this.handlers[type] = handler;
+  }
+
+  setAttribute(name, value) {
+    this.attributes[name] = value;
+  }
+
+  focus() {
+    this.focused = true;
+  }
+}
+
+function createClient(fetchImpl = async () => { throw new Error('Unexpected fetch'); }) {
+  const elements = new Map();
+  const document = {
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, new FakeElement(id));
+      return elements.get(id);
+    },
+  };
+  const context = {
+    document,
+    fetch: fetchImpl,
+    Intl,
+    Date,
+    setInterval() {},
+    setTimeout() {},
+    console,
+  };
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script, 'The dashboard should have its inline client script');
+  vm.runInNewContext(script, context, { timeout: 1000 });
+  return { elements, context, element: (id) => document.getElementById(id) };
+}
+
+function tick() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
 
 test('exact live-news prompts are detected and mapped to topic queries', () => {
   for (const prompt of exactPrompts) assert.equal(intent.isNewsIntent(prompt), true, prompt);
@@ -25,28 +92,13 @@ test('exact live-news prompts are detected and mapped to topic queries', () => {
   assert.match(intent.searchQuery(exactPrompts[2]), /dünya/i);
 });
 
-test('gaming and recipe intents have category-specific behavior', () => {
+test('gaming news intent maps to a gaming-specific search query', () => {
   assert.equal(intent.topicFor('Oyun gündeminde bugün ne var?').label, 'Oyun gündemi');
   assert.match(intent.searchQuery('Oyun gündeminde bugün ne var?'), /Steam|PlayStation|Xbox|Nintendo/);
   assert.doesNotMatch(intent.searchQuery('Oyun gündeminde bugün ne var?'), /Türkiye siyaset/i);
-
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /tarif|recipe/i);
-  assert.match(html, /Malzemeler/);
-  assert.match(html, /Pratik hazırlık/);
-  assert.match(html, /250 g makarna/);
-  assert.match(html, /1 su bardağı kırmızı mercimek/);
-  const recipeStart = html.indexOf('function localRecipe(query){');
-  const recipeEnd = html.indexOf('function localAnswer(q){', recipeStart);
-  assert.ok(recipeStart >= 0 && recipeEnd > recipeStart);
-  const context = { normText: (value) => String(value).toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ç/g, 'c') };
-  vm.runInNewContext(html.slice(recipeStart, recipeEnd) + '\nthis.localRecipe=localRecipe;', context);
-  assert.match(context.localRecipe('Makarna tarifi'), /250 g makarna/);
-  assert.match(html, /Yaklaşık 20 dakika kaynat|yaklaşık 20 dakika kaynat/i);
-  assert.doesNotMatch(html.slice(html.indexOf("if(/(tarif|recipe"), html.indexOf("if(topicOf(t)==='gaming'")), /Biraz daha ayrıntı verir misin/);
 });
 
-test('topic failure copy is honest and never uses generic clarification prompts', () => {
+test('topic failure copy is honest and avoids generic clarification prompts', () => {
   for (const prompt of exactPrompts) {
     const message = intent.failureMessage(prompt);
     assert.doesNotMatch(message, /Sorunu veya üzerinde çalıştığınız konuyu yazın/i);
@@ -55,73 +107,97 @@ test('topic failure copy is honest and never uses generic clarification prompts'
   }
 });
 
-test('news detail requests are focused instead of generic topic searches', () => {
+test('detail requests resolve to focused, non-generic search queries', () => {
   assert.equal(intent.isNewsDetailRequest('Türkiyenin nato için önemli rol üstlenmesi haberi hakkında biraz daha detay verir misin?'), true);
   assert.equal(intent.detailSearchQuery('Türkiyenin nato için önemli rol üstlenmesi haberi hakkında biraz daha detay verir misin?'), 'Türkiyenin nato önemli rol üstlenmesi');
   assert.equal(intent.isNewsDetailRequest('8. Haber hakkında biraz daha detay verirmisin?'), true);
   assert.doesNotMatch(intent.searchQuery('Türkiyenin nato için önemli rol üstlenmesi haberi hakkında biraz daha detay verir misin?'), /gündem son dakika/i);
-
   assert.equal(intent.detailSearchQuery('SON DAKİKA | 3. Türkiye NATO Zirvesi Trump Türkiye hakkında detay'), 'Türkiye NATO Zirvesi Trump Türkiye');
   assert.deepEqual(intent.detailSearchQueries('SON DAKİKA | Türkiye NATO Zirvesi Trump Türkiye haberi hakkında detay'), ['Türkiye NATO Zirvesi Trump Türkiye', 'NATO Zirvesi Trump Türkiye']);
 });
 
-test('detail failure copy names the subject and avoids fabrication', () => {
+test('detail failure copy names the subject and does not fabricate information', () => {
   const message = intent.failureMessage('Haber detayı Türkiye NATO Zirvesi Trump Türkiye');
   assert.match(message, /Türkiye NATO Zirvesi Trump Türkiye/);
   assert.match(message, /doğrulayamadım|erişilemiyor/);
   assert.doesNotMatch(message, /doğrulanmış bilgi olarak|Soruyu|hangi haber/i);
 });
 
-test('numbered follow-up resolves the previous item title and searches it specifically', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const start = html.indexOf('function resolveNumberedNewsFollowup(query){');
-  const end = html.indexOf('function buildSearchQuery(query){', start);
-  assert.ok(start >= 0 && end > start);
-  const context = {
-    window: { FoVerseNewsIntent: intent },
-    document: { querySelectorAll: () => [{ innerText: 'Güncel gündem başlıkları\n1. İlk haber\n8. Türkiye NATO ilişkilerinde yeni gelişme' }] },
-  };
-  vm.runInNewContext(html.slice(start, end) + '\nthis.resolveNumberedNewsFollowup=resolveNumberedNewsFollowup;', context);
-  const resolved = context.resolveNumberedNewsFollowup('8. Haber hakkında biraz daha detay verir misin?');
-  assert.equal(resolved, 'Haber detayı Türkiye NATO ilişkilerinde yeni gelişme');
+test('dashboard renders labeled demo stories and interactive category and 5N1K controls', () => {
+  assert.match(html, /Durum raporu/);
+  assert.match(html, /Kategorize Edilmiş Veri Akışı/);
+  assert.match(html, /Yapay Zekâ Çıkarımı/);
+  assert.match(html, /Proaktif Öneri/);
 
-  const queryStart = html.indexOf('function buildSearchQuery(query){');
-  const queryEnd = html.indexOf('async function searchWeb(query)', queryStart);
-  assert.ok(queryStart >= 0 && queryEnd > queryStart);
-  vm.runInNewContext(html.slice(queryStart, queryEnd) + '\nthis.buildSearchQuery=buildSearchQuery;', context);
-  assert.equal(context.buildSearchQuery(resolved), 'Türkiye NATO ilişkilerinde yeni gelişme');
+  const { elements } = createClient();
+  const feed = elements.get('feed');
+  assert.equal((feed.innerHTML.match(/class="story"/g) || []).length, 4);
+  assert.match(feed.innerHTML, /\[ÖRNEK VERİ\]/);
+  assert.doesNotMatch(feed.innerHTML, /CANLI ARAMA/);
+  assert.match(feed.innerHTML, /Kurgusal test kaydı/);
+  assert.match(feed.innerHTML, /5N1K özeti/);
+  assert.match(feed.innerHTML, /Kaynak: FoVerse test senaryosu/);
+
+  elements.get('filters').handlers.click({
+    target: { closest: () => ({ dataset: { category: 'Teknoloji' } }) },
+  });
+  assert.equal((feed.innerHTML.match(/class="story"/g) || []).length, 1);
+  assert.match(feed.innerHTML, /Kent laboratuvarı/);
+  assert.doesNotMatch(feed.innerHTML, /Bölgesel iklim/);
+  assert.match(elements.get('filters').innerHTML, /data-category="Teknoloji" aria-pressed="true"/);
+
+  const cardClasses = new Set();
+  const card = { classList: { toggle(name) { if (cardClasses.has(name)) { cardClasses.delete(name); return false; } cardClasses.add(name); return true; } } };
+  const button = new FakeElement('detail');
+  button.closest = () => card;
+  elements.get('feed').handlers.click({ target: { closest: () => button } });
+  assert.equal(button.attributes['aria-expanded'], 'true');
+  assert.match(button.textContent, /kapat/);
+  assert.equal(cardClasses.has('open'), true);
+  elements.get('feed').handlers.click({ target: { closest: () => button } });
+  assert.equal(button.attributes['aria-expanded'], 'false');
+  assert.equal(cardClasses.has('open'), false);
 });
 
-test('client detail rendering is a short single-story response, not the general news list', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const start = html.indexOf('function localSearchAnswer(items,reason,query){');
-  const end = html.indexOf('async function send(){', start);
-  assert.ok(start >= 0 && end > start);
-  const context = {
-    window: { FoVerseNewsIntent: intent },
-    esc: (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
-  };
-  vm.runInNewContext(html.slice(start, end) + '\nthis.localSearchAnswer=localSearchAnswer;', context);
-  const items = [1, 2, 3, 4].map((number) => ({ title: `İlgili haber ${number}`, url: `https://example.com/${number}`, snippet: number === 1 ? '' : `Özet ${number}` }));
-  const answer = context.localSearchAnswer(items, '', 'Haber detayı Türkiye NATO ilişkileri');
-  assert.match(answer, /<h2>Haber detayı<\/h2>/);
-  assert.doesNotMatch(answer, /Güncel gündem başlıkları/);
-  assert.equal((answer.match(/<li>/g) || []).length, 3);
-  assert.doesNotMatch(answer, /İlgili haber 4/);
-  assert.doesNotMatch(answer, /İlgili haber 1<\/a><br>/);
+test('successful live search renders source links and keeps verification limits visible', async () => {
+  const { elements, element } = createClient(async (url, options) => {
+    assert.equal(url, '/api/search');
+    assert.equal(options.method, 'POST');
+    assert.deepEqual(JSON.parse(options.body), { query: 'yapay zekâ', count: 8 });
+    return {
+      ok: true,
+      async json() {
+        return { items: [{ title: 'Yapay zekâ haberi', snippet: 'Kaynak açıklaması', url: 'https://news.example/story' }] };
+      },
+    };
+  });
+
+  const query = element('query');
+  query.value = 'yapay zekâ';
+  elements.get('searchForm').handlers.submit({ preventDefault() {} });
+  await tick();
+  await tick();
+
+  assert.match(elements.get('statusState').textContent, /Sonuçlar alındı/);
+  assert.match(elements.get('feed').innerHTML, /Yapay zekâ haberi/);
+  assert.match(elements.get('feed').innerHTML, /href="https:\/\/news\.example\/story"/);
+  assert.match(elements.get('feed').innerHTML, /bağımsız doğrulama değildir/);
+  assert.match(elements.get('inference').innerHTML, /ayrıca doğrulanmadı/);
+  assert.equal(elements.get('searchButton').disabled, false);
 });
 
-test('high-contrast chat, news links and contrast styles are present', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /\.message\.ai \.answer/);
-  assert.match(html, /color:#f3f4f6|color:#fff|#e5e7eb/i);
-  assert.match(html, /\.answer a|answer.*a|target="_blank"/);
-});
+test('failed live search clearly falls back to explicitly labeled demo data', async () => {
+  const { elements, element } = createClient(async () => { throw new Error('Servis kullanılamıyor'); });
+  element('query').value = 'gündem';
+  elements.get('searchForm').handlers.submit({ preventDefault() {} });
+  await tick();
+  await tick();
 
-test('client HTML loads the reusable news module and wires topic fallback', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /<script src="\/news-intent\.js"><\/script>/);
-  assert.match(html, /FoVerseNewsIntent\?\.isNewsIntent/);
-  assert.match(html, /FoVerseNewsIntent\?\.searchQuery/);
-  assert.match(html, /localSearchAnswer\(searchResult.*effectiveQuery/);
+  assert.match(elements.get('statusState').textContent, /Canlı doğrulama yok/);
+  assert.match(elements.get('sourceState').textContent, /Örnek veri gösteriliyor/);
+  assert.match(elements.get('inference').innerHTML, /Canlı arama tamamlanamadı/);
+  assert.match(elements.get('inference').innerHTML, /\[ÖRNEK VERİ\]/);
+  assert.equal((elements.get('feed').innerHTML.match(/class="story"/g) || []).length, 4);
+  assert.match(elements.get('feed').innerHTML, /\[ÖRNEK VERİ\]/);
+  assert.equal(elements.get('searchButton').disabled, false);
 });

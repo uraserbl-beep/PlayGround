@@ -219,21 +219,6 @@ async function searchHandler(req, res) {
 
 module.exports = searchHandler;
 
-// Vercel invokes serverless functions in-process. Keep one stable JSON contract
-// even if a runtime primitive or upstream response throws outside the source fallbacks.
-module.exports.default = async function vercelSearchHandler(req, res) {
-  try {
-    await searchHandler(req, res);
-  } catch (error) {
-    if (!res.headersSent) {
-      reply(res, 502, {
-        error: 'Arama işlevinde beklenmeyen bir hata oluştu; kontrolsüz bir 500 hatasına dönüşmedi.',
-        code: 'SEARCH_HANDLER_ERROR',
-      });
-    }
-  }
-};
-
 function rssSearchResult(xml, count) {
   const items = [];
   const itemMatches = xml.match(/<item\b[^>]*>[\s\S]*?<\/item>/gi) || [];

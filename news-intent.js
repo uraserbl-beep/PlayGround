@@ -39,8 +39,8 @@
   function detailSearchQuery(query) {
     let title = String(query || '')
       .replace(/^\s*Haber\s+detay[ıi]\s*/i, '')
-      .replace(/^\s*\d{1,2}\s*[.)]?\s*/, '')
       .replace(/^\s*(?:SON\s+DAK[Iİ]KA|BREAKING|FLASH)\s*(?:\|\s*)?/i, '')
+      .replace(/^\s*\d{1,2}\s*[.)]?\s*/, '')
       .replace(/\bABD\s+Başkan[ıi]\b/gi, ' ')
       .replace(/(?:detaylandir(?:ir)? misin|detaylandir|detaylarini? (?:ver|anlat)|detayli (?:bilgi|aciklama) (?:ver|anlat)|biraz daha detay (?:verir misin|verirmisin|anlatir misin)|detay verir misin|detay verirmisin|detay(?:ı|i)?|aciklar misin|bilgi verir misin|hakk(?:ında|inda)|hakkindaki)/gi, ' ')
       .replace(/\b(?:biraz|daha|fazla|kisa|kısaca|lutfen|lütfen|haberi|haberini|haber|maddeyi|maddesini|madde|konuyu|son|dakika|breaking|flash|canli|live|baslik|basliklari|detay|hakkinda|icin|ile|ve|bu|bir|olarak|aciklama|baskan|baskani|cumhurbaskani|bakan|bakani)\b/gi, ' ')

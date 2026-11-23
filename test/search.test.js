@@ -193,6 +193,7 @@ test('tries a short fallback query for detail searches after primary sources fai
           ok: true,
           async text() { return '<rss><channel><item><title>NATO Zirvesi - Trump Türkiye - AA</title><link>https://example.com/nato-zirvesi</link></item></channel></rss>'; }
         };
+      }
       return { ok: false, status: 503 };
     };
     try {

@@ -140,6 +140,12 @@ async function fetchWithTimeout(operation, timeoutMs = SOURCE_TIMEOUT_MS) {
 }
 
 module.exports = async function handler(req, res) {
+  const ping = req.query && req.query.ping === '1';
+  const pingFromUrl = typeof req.url === 'string' && /(?:[?&])ping=1(?:&|$)/.test(req.url);
+  if (ping || pingFromUrl) {
+    return res.status(200).json({ ok: true, commit: 'ping-test', node: process.version });
+  }
+
   if (req.method !== 'POST' && req.method !== 'GET') {
     res.set('Allow', 'GET, POST');
     return reply(res, 405, { error: 'Only GET and POST are supported.' });

@@ -37,6 +37,18 @@ async function withCredentials(fn) {
   }
 }
 
+test('returns the minimal ping response before search work', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => { throw new Error('ping must not fetch'); };
+  try {
+    const res = await invoke({ ping: '1' }, 'GET');
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.payload, { ok: true, commit: 'ping-test', node: process.version });
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('rejects unsupported methods without calling Google', async () => {
   const originalFetch = global.fetch;
   global.fetch = async () => { throw new Error('fetch should not run'); };

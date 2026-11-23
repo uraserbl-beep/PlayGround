@@ -86,7 +86,7 @@ async function googleSearch(apiKey, cx, query, count) {
   const params = new URLSearchParams({ key: apiKey, cx, q: query, num: String(count), hl: 'tr', gl: 'tr' });
   const response = await fetch('https://www.googleapis.com/customsearch/v1?' + params.toString(), {
     method: 'GET',
-    headers: { Accept: 'application/json', 'User-Agent': 'Gemini-Search-App/1.0' },
+    headers: { Accept: 'application/json', 'User-Agent': 'FoVerse-AI-Search/1.0' },
   });
   if (!response.ok) throw new Error(`Google search failed: ${response.status}`);
   const data = await response.json();
@@ -103,7 +103,7 @@ async function rssSearch(query, count) {
   const params = new URLSearchParams({ q: query, hl: 'tr', gl: 'TR', ceid: 'TR:tr' });
   const response = await fetch('https://news.google.com/rss/search?' + params.toString(), {
     method: 'GET',
-    headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8', 'User-Agent': 'Gemini-Search-App/1.0' },
+    headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8', 'User-Agent': 'FoVerse-AI-Search/1.0' },
   });
   if (!response.ok) throw new Error(`Google News RSS failed: ${response.status}`);
   const xml = await response.text();
@@ -164,7 +164,7 @@ module.exports = async function searchHandler(req, res) {
       const items = await fetchWithTimeout((signal) => {
         const params = new URLSearchParams({ key: apiKey, cx, q: query, num: String(count), hl: 'tr', gl: 'tr' });
         return fetch('https://www.googleapis.com/customsearch/v1?' + params.toString(), {
-          method: 'GET', headers: { Accept: 'application/json', 'User-Agent': 'Gemini-Search-App/1.0' }, signal,
+          method: 'GET', headers: { Accept: 'application/json', 'User-Agent': 'FoVerse-AI-Search/1.0' }, signal,
         }).then(async (response) => {
           if (!response.ok) throw new Error(`Google search failed: ${response.status}`);
           const data = await response.json();
@@ -191,7 +191,7 @@ module.exports = async function searchHandler(req, res) {
     const items = await fetchWithTimeout((signal) => {
       const params = new URLSearchParams({ q: query, hl: 'tr', gl: 'TR', ceid: 'TR:tr' });
       return fetch('https://news.google.com/rss/search?' + params.toString(), {
-        method: 'GET', headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8', 'User-Agent': 'Gemini-Search-App/1.0' }, signal,
+        method: 'GET', headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8', 'User-Agent': 'FoVerse-AI-Search/1.0' }, signal,
       }).then(async (response) => {
         if (!response.ok) throw new Error(`Google News RSS failed: ${response.status}`);
         return rssSearchResult(await response.text(), count);
@@ -249,7 +249,7 @@ async function gdeltSearch(query, count, signal) {
   });
   const response = await fetch(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, {
     method: 'GET',
-    headers: { Accept: 'application/json', 'User-Agent': 'Gemini-Search-App/1.0' },
+    headers: { Accept: 'application/json', 'User-Agent': 'FoVerse-AI-Search/1.0' },
     signal,
   });
   if (!response.ok) throw new Error(`GDELT search failed: ${response.status}`);

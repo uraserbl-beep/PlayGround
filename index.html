@@ -129,6 +129,8 @@ if(r.ok){const j=await r.json(),candidate=j?.candidates?.[0],text=candidate?.con
 function shouldSearch(query){
   const q=normText(query);
   if(!q)return false;
+  const currentShort=/^(gündemde ne var|gundemde ne var|bugün neler oldu|bugun neler oldu|haberler|güncel haberler|guncel haberler|son gelişmeler|son gelismeler|son dakika)$/i.test(q.replace(/[?!.]+$/,'').trim());
+  if(currentShort)return true;
   // Do not search for conversation, creative fiction, general reasoning, or questions already answered by the supplied context.
   if(/\b(hikaye|hikaye yaz|senaryo|kurgu|creative|fiction|story|poem|siir|sohbet|chat|genel mantik|genel mantık|acikla|anlat|neden|nasıl|nasil)\b/i.test(q)&&!/\b(haber|guncel|son durum|bugun|dun|bu hafta|gecen hafta|fiyat|hava durumu|borsa|score|skor|surum|version|release|kaynak|dogrula|doğrula|araştır|araştırma|ara|google|kontrol et)\b/i.test(q))return false;
   const explicit=/\b(arastir|arastirma|araştır|araştırma|google'da bul|google da bul|kontrol et|kaynak getir|kaynaklar|get source|sources|find online|search the web|look up)\b/i.test(q);
@@ -139,6 +141,8 @@ function shouldSearch(query){
 function buildSearchQuery(query){
   const q=String(query||'').replace(/\s+/g,' ').trim();
   if(!q)return '';
+  const normalized=q.toLocaleLowerCase('tr-TR').replace(/[?!.]+$/,'').trim();
+  if(/^(gündemde ne var|gundemde ne var|bugün neler oldu|bugun neler oldu|son gelişmeler|son gelismeler|haberler|güncel haberler|guncel haberler)$/.test(normalized))return 'Türkiye ve dünya gündem son dakika haberleri';
   let out=q
     .replace(/^(lütfen\s+|lutfen\s+|please\s+|can you\s+|could you\s+)/i,'')
     .replace(/\b(arastir|araştır|araştırma|google'da bul|google da bul|kontrol et|kaynak getir|search the web|look up|get sources?)\b/gi,'')

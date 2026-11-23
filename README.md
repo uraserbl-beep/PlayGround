@@ -19,9 +19,9 @@
 
 ## Web search setup
 
-The `/api/search` serverless endpoint uses Google Custom Search. Configure these environment variables on a Node/serverless deployment that supports the `api/` directory:
+The `/api/search` handler uses Google Custom Search. Configure these environment variables on a Node/serverless deployment that supports the `api/` directory:
 
 - `GOOGLE_SEARCH_API_KEY`
 - `GOOGLE_SEARCH_CX`
 
-The credentials stay on the server and are never sent to the browser. The endpoint accepts POST requests, limits queries to 500 characters and results to 8, and applies an 8-second upstream timeout. Run the endpoint's isolated validation tests with `node --test test/search.test.js`. Static-only hosting does not run this endpoint; in that case the assistant will say that live web verification is unavailable.
+The credentials stay on the server and are never sent to the browser. The endpoint accepts POST requests, limits queries to 500 characters and results to 8, and applies an 8-second upstream timeout. For a local app plus API server, run `node server.js` (port 3000 by default; override with `PORT`) and use `node --test test/search.test.js test/server.test.js` to validate both the handler and its HTTP route. Static-only hosting does not run this endpoint; deploy it to a Node/serverless host configured to route `/api/search` to `api/search.js`, or use the local server. An external preview launcher may use its own routing configuration, which this repository cannot change.

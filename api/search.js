@@ -25,15 +25,15 @@ function cleanText(value) {
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&(amp|#0*38);/gi, '&')
     .replace(/&(quot|#0*34);/gi, '"')
     .replace(/&(apos|#0*39);/gi, "'")
     .replace(/&(lt|#0*60);/gi, '<')
     .replace(/&(gt|#0*62);/gi, '>')
-    .replace(/&#(\d+);/g, (_, code) => { const n = Number(code); return Number.isInteger(n) ? String.fromCodePoint(n) : ''; })
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => { const n = Number.parseInt(code, 16); return Number.isInteger(n) ? String.fromCodePoint(n) : ''; });
+    .replace(/&#(\d+);/g, (_, code) => { const n = Number(code); return Number.isInteger(n) && n <= 0x10ffff ? String.fromCodePoint(n) : ''; })
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => { const n = Number.parseInt(code, 16); return Number.isInteger(n) && n <= 0x10ffff ? String.fromCodePoint(n) : ''; })
+    .replace(/<[^>]*>/g, ' ');
   return text.replace(/\s+/g, ' ').trim();
 }
 
@@ -46,10 +46,8 @@ function normalizeItem(item) {
   const titleKey = title.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const snippetKey = snippet.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   if (!snippet || snippetKey === titleKey || (snippetKey && titleKey && (snippetKey.includes(titleKey) || titleKey.includes(snippetKey)))) snippet = '';
-  snippet = (snippet || 'Kaynak metninde ayrıntılı özet bulunmadı.').slice(0, 1200);
-  let source = cleanText(item.source);
-  try { if (!source) source = cleanText(new URL(url).hostname); } catch { source = ''; }
-  return { title, url, snippet, source: source.slice(0, 200), date: cleanText(item.date).slice(0, 100) };
+  const source = cleanText(item.source);
+  return { title, url, snippet: snippet.slice(0, 1200), source: source.slice(0, 200), date: cleanText(item.date).slice(0, 100) };
 }
 
 function dedupeAndSort(items) {
@@ -129,13 +127,20 @@ async function rssSearch(query, count) {
     const title = cleanText(get('title'));
     const url = validHttpUrl(cleanText(get('link')));
     if (!title || !url) continue;
-    const sourceMatch = title.match(/\s+-\s+([^]+)$/);
-    const source = cleanText(sourceMatch?.[1] || 'Google News');
-    const headline = cleanText(sourceMatch ? title.slice(0, sourceMatch.index).trim() : title);
+    const sourceTag = cleanText(get('source'));
+    const dashMatch = title.match(/\s+-\s+([^]+)$/);
+    const pipeMatch = title.match(/\s*\|\s*([^|]+)$/);
+    const suffixMatch = dashMatch || pipeMatch;
+    const source = cleanText(sourceTag || (suffixMatch ? suffixMatch[1] : ''));
+    const headline = cleanText(suffixMatch ? title.slice(0, suffixMatch.index).trim() : title);
+    const description = cleanText(get('description'));
+    const titleKey = headline.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const descriptionKey = description.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const snippet = !description || descriptionKey === titleKey || descriptionKey.includes(titleKey) || titleKey.includes(descriptionKey) ? '' : description;
     items.push({
       title: headline.slice(0, 300),
       url,
-      snippet: cleanText(get('description') || headline).slice(0, 1200),
+      snippet: snippet.slice(0, 1200),
       source,
       date: cleanText(get('pubDate')).slice(0, 100),
     });
@@ -265,12 +270,19 @@ function rssSearchResult(xml, count) {
     const title = cleanText(get('title'));
     const url = validHttpUrl(cleanText(get('link')));
     if (!title || !url) continue;
-    const sourceMatch = title.match(/\s+-\s+([^]+)$/);
-    const source = cleanText(sourceMatch?.[1] || 'Google News');
-    const headline = cleanText(sourceMatch ? title.slice(0, sourceMatch.index).trim() : title);
+    const sourceTag = cleanText(get('source'));
+    const dashMatch = title.match(/\s+-\s+([^]+)$/);
+    const pipeMatch = title.match(/\s*\|\s*([^|]+)$/);
+    const suffixMatch = dashMatch || pipeMatch;
+    const source = cleanText(sourceTag || (suffixMatch ? suffixMatch[1] : ''));
+    const headline = cleanText(suffixMatch ? title.slice(0, suffixMatch.index).trim() : title);
+    const description = cleanText(get('description'));
+    const titleKey = headline.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const descriptionKey = description.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const snippet = !description || descriptionKey === titleKey || descriptionKey.includes(titleKey) || titleKey.includes(descriptionKey) ? '' : description;
     items.push({
       title: headline.slice(0, 300), url,
-      snippet: cleanText(get('description')).slice(0, 1200),
+      snippet: snippet.slice(0, 1200),
       source,
       date: cleanText(get('pubDate')).slice(0, 100),
     });

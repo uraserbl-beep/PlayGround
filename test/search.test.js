@@ -22,7 +22,7 @@ async function invoke(body, method = 'POST') {
   return res;
 }
 
-test('RSS description that merely repeats the headline is replaced by an honest fallback', async () => {
+test('RSS description that merely repeats the headline stays empty', async () => {
   const originalFetch = global.fetch;
   global.fetch = async (input) => {
     if (new URL(input).hostname === 'news.google.com') {
@@ -36,8 +36,35 @@ test('RSS description that merely repeats the headline is replaced by an honest 
     const item = res.payload.items[0];
     assert.equal(item.title, 'İsrail B planı gündemde');
     assert.equal(item.source, 'Örnek Haber');
-    assert.notEqual(item.snippet, item.title);
-    assert.ok(item.snippet.length > 0);
+    assert.equal(item.snippet, '');
+  } finally { global.fetch = originalFetch; }
+});
+
+test('RSS uses source tag and HTML-cleaned real description without fabricated fallbacks', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (input) => {
+    if (new URL(input).hostname === 'news.google.com') {
+      return { ok: true, async text() { return '<rss><channel><item><title>Türkiye NATO kararı | Resmi Gazete</title><source>AA</source><link>https://example.com/nato</link><description>&lt;b&gt;NATO açıklaması&lt;/b&gt; bugün yayımlandı.</description></item></channel></rss>'; } };
+    }
+    throw new Error('Unexpected fetch');
+  };
+  try {
+    const res = await invoke({ query: 'NATO haberi', count: 8 }, 'POST');
+    const item = res.payload.items[0];
+    assert.equal(item.title, 'Türkiye NATO kararı');
+    assert.equal(item.source, 'AA');
+    assert.equal(item.snippet, 'NATO açıklaması bugün yayımlandı.');
+  } finally { global.fetch = originalFetch; }
+});
+
+test('RSS title-only item leaves snippet and source empty', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok: true, async text() { return '<rss><channel><item><title>Başlığa dayalı haber</title><link>https://example.com/baslik</link><description></description></item></channel></rss>'; } });
+  try {
+    const res = await invoke({ query: 'başlık haberi', count: 8 }, 'POST');
+    const item = res.payload.items[0];
+    assert.equal(item.snippet, '');
+    assert.equal(item.source, '');
   } finally { global.fetch = originalFetch; }
 });
 

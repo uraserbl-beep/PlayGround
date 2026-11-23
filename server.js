@@ -53,7 +53,7 @@ function createServer() {
         },
       };
 
-      await searchHandler({ method: req.method, body }, handlerResponse);
+      await searchHandler({ method: req.method, body, url: req.url, query: Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) }, handlerResponse);
       return;
     }
 

@@ -2,24 +2,61 @@
 
 const MAX_QUERY_LENGTH = 500;
 const MAX_RESULTS = 8;
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 5000;
+const SOURCE_TIMEOUT_MS = 4000;
 
 function reply(res, status, payload) {
   return res.status(status).set('Cache-Control', 'no-store').json(payload);
 }
 
 function cleanText(value) {
-  return String(value || '')
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+  let text = String(value || '')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/&(amp|#0*38);/gi, '&')
+    .replace(/&(quot|#0*34);/gi, '"')
+    .replace(/&(apos|#0*39);/gi, "'")
+    .replace(/&(lt|#0*60);/gi, '<')
+    .replace(/&(gt|#0*62);/gi, '>')
+    .replace(/&#(\d+);/g, (_, code) => { const n = Number(code); return Number.isInteger(n) ? String.fromCodePoint(n) : ''; })
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => { const n = Number.parseInt(code, 16); return Number.isInteger(n) ? String.fromCodePoint(n) : ''; });
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeItem(item) {
+  if (!item) return null;
+  const title = cleanText(item.title).slice(0, 300);
+  const url = validHttpUrl(item.url);
+  if (!title || !url) return null;
+  const snippet = cleanText(item.snippet || title).slice(0, 1200) || title;
+  let source = cleanText(item.source);
+  try { if (!source) source = cleanText(new URL(url).hostname); } catch { source = ''; }
+  return { title, url, snippet, source: source.slice(0, 200), date: cleanText(item.date).slice(0, 100) };
+}
+
+function dedupeAndSort(items) {
+  const seen = new Set();
+  return items.map(normalizeItem).filter(Boolean).filter((item) => {
+    let key;
+    try {
+      const url = new URL(item.url);
+      url.hash = '';
+      url.searchParams.delete('utm_source'); url.searchParams.delete('utm_medium'); url.searchParams.delete('utm_campaign');
+      key = `${url.origin}${url.pathname.replace(/\/$/, '')}`.toLocaleLowerCase('tr-TR');
+    } catch { key = item.url.toLocaleLowerCase('tr-TR'); }
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => {
+    const timestamp = (item) => {
+      const value = Date.parse(item.date);
+      return Number.isFinite(value) ? value : 0;
+    };
+    return timestamp(b) - timestamp(a);
+  });
 }
 
 function buildMeaningfulQuery(raw) {
@@ -92,9 +129,9 @@ async function rssSearch(query, count) {
   return items;
 }
 
-async function fetchWithTimeout(operation) {
+async function fetchWithTimeout(operation, timeoutMs = SOURCE_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await operation(controller.signal);
   } finally {
@@ -143,7 +180,8 @@ module.exports = async function searchHandler(req, res) {
           }).filter((item) => item.url);
         });
       });
-      if (items.length) return reply(res, 200, { items, source: 'google', query });
+      const normalized = dedupeAndSort(items).slice(0, count);
+      if (normalized.length) return reply(res, 200, { items: normalized, source: 'google', query });
     } catch (_) {
       // Fall through to keyless Google News RSS.
     }
@@ -159,14 +197,16 @@ module.exports = async function searchHandler(req, res) {
         return rssSearchResult(await response.text(), count);
       });
     });
-    if (items.length) return reply(res, 200, { items, source: 'google_news_rss', query });
+    const normalized = dedupeAndSort(items).slice(0, count);
+    if (normalized.length) return reply(res, 200, { items: normalized, source: 'google_news_rss', query });
   } catch (_) {
     // Continue to the independent, keyless GDELT article API.
   }
 
   try {
     const items = await fetchWithTimeout((signal) => gdeltSearch(query, count, signal));
-    if (items.length) return reply(res, 200, { items, source: 'gdelt', query });
+    const normalized = dedupeAndSort(items).slice(0, count);
+    if (normalized.length) return reply(res, 200, { items: normalized, source: 'gdelt', query });
   } catch (_) {
     // Return a clean fallback only after all configured sources are exhausted.
   }
@@ -196,7 +236,7 @@ function rssSearchResult(xml, count) {
     });
     if (items.length >= count) break;
   }
-  return items;
+  return dedupeAndSort(items).slice(0, count);
 }
 
 async function gdeltSearch(query, count, signal) {

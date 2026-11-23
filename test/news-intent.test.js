@@ -128,6 +128,11 @@ test('dashboard renders labeled demo stories and interactive category and 5N1K c
   assert.match(html, /Kategorize Edilmiş Veri Akışı/);
   assert.match(html, /Yapay Zekâ Çıkarımı/);
   assert.match(html, /Proaktif Öneri/);
+  assert.match(html, /Şeffaflık:<\/strong> Sarı <b>\[ÖRNEK VERİ\]<\/b> etiketi taşıyan tüm kayıtlar kurgusal arayüz testidir/);
+  assert.match(html, /flex-wrap:wrap/);
+  assert.match(html, /overflow-wrap:anywhere/);
+  assert.match(html, /@media\(max-width:600px\)/);
+  assert.match(html, /@media\(max-width:380px\)/);
 
   const { elements } = createClient();
   const feed = elements.get('feed');

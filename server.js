@@ -63,6 +63,36 @@ function createServer() {
       return;
     }
 
+    if (pathname === '/assets/cosmic-black-hole-space-live-wallpaper.mp4' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const filePath = path.join(__dirname, 'assets', 'cosmic-black-hole-space-live-wallpaper.mp4');
+      fs.stat(filePath, (err, stat) => {
+        if (err) return sendJson(res, 404, { error: 'Video not found.' });
+        const headers = { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Cache-Control': 'public, max-age=86400' };
+        const range = req.headers.range;
+        if (!range) {
+          res.writeHead(200, { ...headers, 'Content-Length': stat.size });
+          if (req.method === 'HEAD') return res.end();
+          fs.createReadStream(filePath).pipe(res);
+          return;
+        }
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+        if (!match) {
+          res.writeHead(416, { ...headers, 'Content-Range': `bytes */${stat.size}` });
+          return res.end();
+        }
+        const start = match[1] ? Number(match[1]) : 0;
+        const end = match[2] ? Math.min(Number(match[2]), stat.size - 1) : stat.size - 1;
+        if (!Number.isFinite(start) || start >= stat.size || end < start) {
+          res.writeHead(416, { ...headers, 'Content-Range': `bytes */${stat.size}` });
+          return res.end();
+        }
+        res.writeHead(206, { ...headers, 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${stat.size}` });
+        if (req.method === 'HEAD') return res.end();
+        fs.createReadStream(filePath, { start, end }).pipe(res);
+      });
+      return;
+    }
+
     sendJson(res, 404, { error: 'Not found.' });
   });
 }

@@ -42,7 +42,11 @@ function normalizeItem(item) {
   const title = cleanText(item.title).slice(0, 300);
   const url = validHttpUrl(item.url);
   if (!title || !url) return null;
-  const snippet = cleanText(item.snippet || title).slice(0, 1200) || title;
+  let snippet = cleanText(item.snippet);
+  const titleKey = title.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const snippetKey = snippet.toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  if (!snippet || snippetKey === titleKey || (snippetKey && titleKey && (snippetKey.includes(titleKey) || titleKey.includes(snippetKey)))) snippet = '';
+  snippet = (snippet || 'Kaynak metninde ayrıntılı özet bulunmadı.').slice(0, 1200);
   let source = cleanText(item.source);
   try { if (!source) source = cleanText(new URL(url).hostname); } catch { source = ''; }
   return { title, url, snippet, source: source.slice(0, 200), date: cleanText(item.date).slice(0, 100) };
@@ -266,7 +270,7 @@ function rssSearchResult(xml, count) {
     const headline = cleanText(sourceMatch ? title.slice(0, sourceMatch.index).trim() : title);
     items.push({
       title: headline.slice(0, 300), url,
-      snippet: cleanText(get('description') || headline).slice(0, 1200),
+      snippet: cleanText(get('description')).slice(0, 1200),
       source,
       date: cleanText(get('pubDate')).slice(0, 100),
     });

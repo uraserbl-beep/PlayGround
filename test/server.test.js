@@ -43,6 +43,10 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
   assert.match(homeResponse.headers.get('content-type'), /text\/html/);
   assert.match(await homeResponse.text(), /<!doctype html>/i);
 
+  const pingResponse = await fetch(`${origin}/api/search?ping=1`);
+  assert.equal(pingResponse.status, 200);
+  assert.deepEqual(await pingResponse.json(), { ok: true, commit: 'ping-test', node: process.version });
+
   const response = await fetch(`${origin}/api/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

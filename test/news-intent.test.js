@@ -191,6 +191,38 @@ test('successful live search renders source links and keeps verification limits 
   assert.equal(elements.get('searchButton').disabled, false);
 });
 
+test('quick text entry opens locally and produces category, 5N1K and an unverified inference', () => {
+  const { elements, element } = createClient();
+  assert.match(html, /Hızlı Veri Girişi/);
+  assert.match(html, /dış ağ olmadan yalnızca cihaza ait tarayıcıda analiz edilir/i);
+
+  elements.get('openAnalyze').handlers.click();
+  assert.equal(elements.get('analyzeModal').classes.has('open'), true);
+  assert.equal(elements.get('newsText').focused, true);
+
+  element('newsText').value = 'Belediye yapay zekâ tabanlı trafik sistemi için yeni bir yazılım pilotu açıkladı.';
+  elements.get('runAnalyze').handlers.click();
+
+  assert.match(elements.get('analyzeResult').innerHTML, /\[Kategori\] Teknoloji/);
+  assert.match(elements.get('analyzeResult').innerHTML, /5N1K özeti/);
+  assert.match(elements.get('analyzeResult').innerHTML, /Yapay Zekâ Çıkarımı/);
+  assert.match(elements.get('analyzeResult').innerHTML, /gerçek haber veya doğrulanmış veri olarak kabul edilmez/);
+  assert.match(elements.get('feed').innerHTML, /\[KULLANICI METNİ\]/);
+  assert.equal(elements.get('sourceState').textContent, 'Kaynak doğrulanmadı');
+
+  elements.get('clearAnalyze').handlers.click();
+  assert.equal(element('newsText').value, '');
+  assert.equal(elements.get('analyzeResult').innerHTML, '');
+});
+
+test('quick text entry rejects text shorter than ten characters', () => {
+  const { elements, element } = createClient();
+  element('newsText').value = 'Kısa';
+  elements.get('runAnalyze').handlers.click();
+  assert.match(elements.get('analyzeResult').innerHTML, /Metin eksik/);
+  assert.match(elements.get('analyzeResult').innerHTML, /en az 10 karakter/);
+});
+
 test('failed live search clearly falls back to explicitly labeled demo data', async () => {
   const { elements, element } = createClient(async () => { throw new Error('Servis kullanılamıyor'); });
   element('query').value = 'gündem';

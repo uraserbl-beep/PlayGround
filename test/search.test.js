@@ -116,14 +116,47 @@ test('returns bounded, HTTP(S)-only Google results', async () => {
   });
 });
 
-test('maps upstream failures to a safe gateway error', async () => {
+test('maps upstream 403 access restrictions to a safe error', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;
     global.fetch = async () => ({ ok: false, status: 403 });
     try {
       const res = await invoke({ query: 'test query' });
       assert.equal(res.statusCode, 502);
-      assert.match(res.payload.error, /Arama sağlayıcısı/);
+      assert.match(res.payload.error, /erişim kısıtı/);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
+
+test('maps upstream 429 rate limits without retrying', async () => {
+  await withCredentials(async () => {
+    const originalFetch = global.fetch;
+    let fetchCount = 0;
+    global.fetch = async () => {
+      fetchCount += 1;
+      return { ok: false, status: 429 };
+    };
+    try {
+      const res = await invoke({ query: 'test query' });
+      assert.equal(res.statusCode, 503);
+      assert.match(res.payload.error, /istek sınırına/);
+      assert.equal(fetchCount, 1);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
+
+test('maps other upstream failures to a safe gateway error', async () => {
+  await withCredentials(async () => {
+    const originalFetch = global.fetch;
+    global.fetch = async () => ({ ok: false, status: 500 });
+    try {
+      const res = await invoke({ query: 'test query' });
+      assert.equal(res.statusCode, 502);
+      assert.match(res.payload.error, /yanıt veremiyor/);
     } finally {
       global.fetch = originalFetch;
     }

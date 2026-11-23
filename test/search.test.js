@@ -177,6 +177,60 @@ test('rejects malformed, empty, and overlong queries', async () => {
   });
 });
 
+test('tries a short fallback query for detail searches after primary sources fail', async () => {
+  await withCredentials(async () => {
+    const previousKey = process.env.GOOGLE_SEARCH_API_KEY;
+    const previousCx = process.env.GOOGLE_SEARCH_CX;
+    delete process.env.GOOGLE_SEARCH_API_KEY;
+    delete process.env.GOOGLE_SEARCH_CX;
+    const originalFetch = global.fetch;
+    const requests = [];
+    global.fetch = async (url) => {
+      const parsed = new URL(url);
+      requests.push({ hostname: parsed.hostname, q: parsed.searchParams.get('q') });
+      if (parsed.hostname === 'news.google.com' && parsed.searchParams.get('q') === 'NATO Zirvesi Trump Türkiye') {
+        return {
+          ok: true,
+          async text() { return '<rss><channel><item><title>NATO Zirvesi - Trump Türkiye - AA</title><link>https://example.com/nato-zirvesi</link></item></channel></rss>'; }
+        };
+      return { ok: false, status: 503 };
+    };
+    try {
+      const res = await invoke({ query: 'SON DAKİKA | Türkiye NATO Zirvesi Trump Türkiye haberi hakkında detay', count: 8 });
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.payload.query, 'NATO Zirvesi Trump Türkiye');
+      assert.equal(requests[0].q, 'SON DAKİKA | Türkiye NATO Zirvesi Trump Türkiye haberi hakkında detay');
+    } finally {
+      global.fetch = originalFetch;
+      if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;
+      else process.env.GOOGLE_SEARCH_API_KEY = previousKey;
+      if (previousCx === undefined) delete process.env.GOOGLE_SEARCH_CX;
+      else process.env.GOOGLE_SEARCH_CX = previousCx;
+    }
+  });
+});
+
+test('all live sources unavailable returns an honest subject-neutral 502', async () => {
+  const previousKey = process.env.GOOGLE_SEARCH_API_KEY;
+  const previousCx = process.env.GOOGLE_SEARCH_CX;
+  delete process.env.GOOGLE_SEARCH_API_KEY;
+  delete process.env.GOOGLE_SEARCH_CX;
+  const originalFetch = global.fetch;
+  global.fetch = async () => { throw new Error('network unavailable'); };
+  try {
+    const res = await invoke({ query: 'NATO Zirvesi Trump Türkiye haberi hakkında detay' });
+    assert.equal(res.statusCode, 502);
+    assert.equal(res.payload.code, 'LIVE_SEARCH_UNAVAILABLE');
+    assert.match(res.payload.error, /Canlı web araması şu anda kullanılamıyor/);
+  } finally {
+    global.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;
+    else process.env.GOOGLE_SEARCH_API_KEY = previousKey;
+    if (previousCx === undefined) delete process.env.GOOGLE_SEARCH_CX;
+    else process.env.GOOGLE_SEARCH_CX = previousCx;
+  }
+});
+
 test('returns bounded, HTTP(S)-only Google results', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;

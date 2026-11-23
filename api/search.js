@@ -159,6 +159,84 @@ async function fetchWithTimeout(operation, timeoutMs = SOURCE_TIMEOUT_MS) {
   }
 }
 
+function buildDetailFallbackQuery(query) {
+  const stopWords = new Set(['haber', 'haberi', 'detay', 'detayi', 'detaylari', 'hakkinda', 'biraz', 'daha', 'fazla', 'ver', 'verir', 'misin', 'mi', 'icin', 'ile', 've', 'bu', 'son', 'dakika', 'abd', 'baskan', 'baskani', 'olacak', 'oldu', 'oluyor', 'katilacak']);
+  const tokens = buildMeaningfulQuery(query).split(/\s+/).map((token) => token.replace(/[’'].*$/, '').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''));
+  const useful = tokens.filter((token) => {
+    const normalized = token.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i');
+    return token && !stopWords.has(normalized) && !/^(?:edecek|ediyor|etti|acikladi|duyurdu)$/.test(normalized);
+  });
+  const priority = (token) => {
+    const normalized = token.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i');
+    if (normalized === 'nato') return 100;
+    if (/^zirve/.test(normalized)) return 90;
+    if (normalized === 'trump') return 80;
+    if (normalized === 'turkiye') return 70;
+    return Math.min(token.length, 20);
+  };
+  const limit = useful.length > 4 ? 4 : Math.max(1, useful.length - 1);
+  return useful.map((token, index) => ({ token, index }))
+    .sort((a, b) => priority(b.token) - priority(a.token) || a.index - b.index)
+    .slice(0, limit)
+    .map(({ token }) => token)
+    .join(' ');
+}
+
+async function searchSources(query, count, apiKey, cx) {
+  if (apiKey && cx) {
+    try {
+      const items = await fetchWithTimeout((signal) => {
+        const params = new URLSearchParams({ key: apiKey, cx, q: query, num: String(count), hl: 'tr', gl: 'tr' });
+        return fetch('https://www.googleapis.com/customsearch/v1?' + params.toString(), {
+          method: 'GET', headers: { Accept: 'application/json', 'User-Agent': 'FoVerse-AI-Search/1.0' }, signal,
+        }).then(async (response) => {
+          if (!response.ok) throw new Error(`Google search failed: ${response.status}`);
+          const data = await response.json();
+          return (Array.isArray(data.items) ? data.items : []).slice(0, count).map((item) => {
+            const url = validHttpUrl(item.link);
+            let source = cleanText(item.displayLink);
+            try { if (!source) source = cleanText(new URL(url).hostname); } catch {}
+            return {
+              title: cleanText(item.title || 'Kaynak').slice(0, 300), url,
+              snippet: cleanText(item.snippet || '').slice(0, 1200), source,
+              date: cleanText(item.pagemap?.metatags?.[0]?.['article:published_time'] || item.pagemap?.metatags?.[0]?.date || '').slice(0, 100),
+            };
+          }).filter((item) => item.url);
+        });
+      });
+      const normalized = dedupeAndSort(items).slice(0, count);
+      if (normalized.length) return { items: normalized, source: 'google' };
+    } catch (_) {
+      // Continue to keyless sources.
+    }
+  }
+
+  try {
+    const items = await fetchWithTimeout((signal) => {
+      const params = new URLSearchParams({ q: query, hl: 'tr', gl: 'TR', ceid: 'TR:tr' });
+      return fetch('https://news.google.com/rss/search?' + params.toString(), {
+        method: 'GET', headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8', 'User-Agent': 'FoVerse-AI-Search/1.0' }, signal,
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(`Google News RSS failed: ${response.status}`);
+        return rssSearchResult(await response.text(), count);
+      });
+    });
+    const normalized = dedupeAndSort(items).slice(0, count);
+    if (normalized.length) return { items: normalized, source: 'google_news_rss' };
+  } catch (_) {
+    // Continue to the independent, keyless GDELT article API.
+  }
+
+  try {
+    const items = await fetchWithTimeout((signal) => gdeltSearch(query, count, signal));
+    const normalized = dedupeAndSort(items).slice(0, count);
+    if (normalized.length) return { items: normalized, source: 'gdelt' };
+  } catch (_) {
+    // The caller can try a shorter detail query before reporting failure.
+  }
+  return null;
+}
+
 module.exports = async function handler(req, res) {
   const ping = req.query && req.query.ping === '1';
   const pingFromUrl = typeof req.url === 'string' && /(?:[?&])ping=1(?:&|$)/.test(req.url);
@@ -197,58 +275,18 @@ module.exports = async function handler(req, res) {
 
   const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
   const cx = process.env.GOOGLE_SEARCH_CX;
+  const detailPattern = /(?:detay|detaylandır|detaylandir|ayrıntı|ayrinti|hakkında|hakkinda|biraz daha)/i;
+  const isDetailSearch = detailPattern.test(rawQuery) || /^\s*[1-9]\d?\s*[.)]?\s*(?:Haber|Madde|Başlık)/i.test(rawQuery);
 
-  if (apiKey && cx) {
-    try {
-      const items = await fetchWithTimeout((signal) => {
-        const params = new URLSearchParams({ key: apiKey, cx, q: query, num: String(count), hl: 'tr', gl: 'tr' });
-        return fetch('https://www.googleapis.com/customsearch/v1?' + params.toString(), {
-          method: 'GET', headers: { Accept: 'application/json', 'User-Agent': 'FoVerse-AI-Search/1.0' }, signal,
-        }).then(async (response) => {
-          if (!response.ok) throw new Error(`Google search failed: ${response.status}`);
-          const data = await response.json();
-          return (Array.isArray(data.items) ? data.items : []).slice(0, count).map((item) => {
-            const url = validHttpUrl(item.link);
-            let source = cleanText(item.displayLink);
-            try { if (!source) source = cleanText(new URL(url).hostname); } catch {}
-            return {
-              title: cleanText(item.title || 'Kaynak').slice(0, 300), url,
-              snippet: cleanText(item.snippet || '').slice(0, 1200), source,
-              date: cleanText(item.pagemap?.metatags?.[0]?.['article:published_time'] || item.pagemap?.metatags?.[0]?.date || '').slice(0, 100),
-            };
-          }).filter((item) => item.url);
-        });
-      });
-      const normalized = dedupeAndSort(items).slice(0, count);
-      if (normalized.length) return reply(res, 200, { items: normalized, source: 'google', query });
-    } catch (_) {
-      // Fall through to keyless Google News RSS.
+  let result = await searchSources(query, count, apiKey, cx);
+  if (!result && isDetailSearch) {
+    const fallbackQuery = buildDetailFallbackQuery(rawQuery);
+    if (fallbackQuery && fallbackQuery !== query) {
+      result = await searchSources(fallbackQuery, count, apiKey, cx);
+      if (result) return reply(res, 200, { items: result.items, source: result.source, query: fallbackQuery });
     }
   }
-
-  try {
-    const items = await fetchWithTimeout((signal) => {
-      const params = new URLSearchParams({ q: query, hl: 'tr', gl: 'TR', ceid: 'TR:tr' });
-      return fetch('https://news.google.com/rss/search?' + params.toString(), {
-        method: 'GET', headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8', 'User-Agent': 'FoVerse-AI-Search/1.0' }, signal,
-      }).then(async (response) => {
-        if (!response.ok) throw new Error(`Google News RSS failed: ${response.status}`);
-        return rssSearchResult(await response.text(), count);
-      });
-    });
-    const normalized = dedupeAndSort(items).slice(0, count);
-    if (normalized.length) return reply(res, 200, { items: normalized, source: 'google_news_rss', query });
-  } catch (_) {
-    // Continue to the independent, keyless GDELT article API.
-  }
-
-  try {
-    const items = await fetchWithTimeout((signal) => gdeltSearch(query, count, signal));
-    const normalized = dedupeAndSort(items).slice(0, count);
-    if (normalized.length) return reply(res, 200, { items: normalized, source: 'gdelt', query });
-  } catch (_) {
-    // Return a clean fallback only after all configured sources are exhausted.
-  }
+  if (result) return reply(res, 200, { items: result.items, source: result.source, query });
 
   return reply(res, 502, {
     error: 'Canlı web araması şu anda kullanılamıyor; haber kaynağına ve yedek arama katmanına ulaşılamadı.',

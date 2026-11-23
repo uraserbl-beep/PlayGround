@@ -6,7 +6,18 @@ const TIMEOUT_MS = 5000;
 const SOURCE_TIMEOUT_MS = 4000;
 
 function reply(res, status, payload) {
-  return res.status(status).set('Cache-Control', 'no-store').json(payload);
+  res.statusCode = status;
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  }
+  if (typeof res.status === 'function' && typeof res.set === 'function' && typeof res.json === 'function') {
+    return res.status(status).set('Cache-Control', 'no-store').json(payload);
+  }
+  if (typeof res.end === 'function') {
+    res.end(JSON.stringify(payload));
+  }
+  return res;
 }
 
 function cleanText(value) {
@@ -143,8 +154,10 @@ module.exports = async function handler(req, res) {
   const ping = req.query && req.query.ping === '1';
   const pingFromUrl = typeof req.url === 'string' && /(?:[?&])ping=1(?:&|$)/.test(req.url);
   if (ping || pingFromUrl) {
-    return res.status(200).json({ ok: true, commit: 'ping-test', node: process.version });
+    return reply(res, 200, { ok: true, commit: 'ping-test', node: process.version });
   }
+
+  try {
 
   if (req.method !== 'POST' && req.method !== 'GET') {
     res.set('Allow', 'GET, POST');
@@ -232,6 +245,12 @@ module.exports = async function handler(req, res) {
     error: 'Canlı web araması şu anda kullanılamıyor; haber kaynağına ve yedek arama katmanına ulaşılamadı.',
     code: 'LIVE_SEARCH_UNAVAILABLE',
   });
+  } catch (err) {
+    return reply(res, 502, {
+      error: 'Arama işlenirken beklenmeyen bir hata oluştu; sorgu güvenli biçimde durduruldu.',
+      code: 'LIVE_SEARCH_RUNTIME_ERROR',
+    });
+  }
 }
 
 function rssSearchResult(xml, count) {

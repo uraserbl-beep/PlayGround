@@ -269,7 +269,48 @@ test('uses keyless GDELT when Google Search and Google News RSS are unavailable'
   }
 });
 
-test('returns a gateway error when all upstream sources abort', async () => {
+test('returns valid JSON for normal search through a native Vercel response', async () => {
+  const previousKey = process.env.GOOGLE_SEARCH_API_KEY;
+  const previousCx = process.env.GOOGLE_SEARCH_CX;
+  delete process.env.GOOGLE_SEARCH_API_KEY;
+  delete process.env.GOOGLE_SEARCH_CX;
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (new URL(url).hostname === 'news.google.com') {
+      return {
+        ok: true,
+        async text() {
+          return '<rss><channel><item><title>Native fallback - Yerel Kaynak</title><link>https://example.com/native</link><description>Native yanıt testi</description></item></channel></rss>';
+        },
+      };
+    }
+    throw new Error('Unexpected native test upstream');
+  };
+  try {
+    let ended;
+    const res = {
+      statusCode: 200,
+      headers: {},
+      setHeader(name, value) { this.headers[name] = value; },
+      end(body) { ended = body; },
+    };
+    await searchHandler({ method: 'GET', query: { q: 'test' }, url: '/api/search?q=test' }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['Content-Type'], 'application/json; charset=utf-8');
+    assert.equal(typeof ended, 'string');
+    const payload = JSON.parse(ended);
+    assert.equal(payload.source, 'google_news_rss');
+    assert.equal(payload.items[0].title, 'Native fallback');
+  } finally {
+    global.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.GOOGLE_SEARCH_API_KEY;
+    else process.env.GOOGLE_SEARCH_API_KEY = previousKey;
+    if (previousCx === undefined) delete process.env.GOOGLE_SEARCH_CX;
+    else process.env.GOOGLE_SEARCH_CX = previousCx;
+  }
+});
+
+test('returns gateway error when all upstream sources abort', async () => {
   await withCredentials(async () => {
     const originalFetch = global.fetch;
     global.fetch = async () => {

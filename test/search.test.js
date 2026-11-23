@@ -22,6 +22,27 @@ async function invoke(body, method = 'POST') {
   return res;
 }
 
+test('live search remains HTTP(S)-only and bounded', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (new URL(url).hostname === 'news.google.com') {
+      return {
+        ok: true,
+        async text() {
+          return '<rss><channel><item><title>Canlı haber - Kaynak</title><link>https://example.com/haber</link><description>Canlı özet</description></item></channel></rss>';
+        },
+      };
+    }
+    throw new Error('Unexpected fetch');
+  };
+  try {
+    const res = await invoke({ query: 'Dünya gündemi', count: 8 });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.payload.source, 'google_news_rss');
+    assert.equal(res.payload.items[0].url, 'https://example.com/haber');
+  } finally { global.fetch = originalFetch; }
+});
+
 test('RSS description that merely repeats the headline stays empty', async () => {
   const originalFetch = global.fetch;
   global.fetch = async (input) => {

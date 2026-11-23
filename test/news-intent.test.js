@@ -72,24 +72,31 @@ test('detail failure copy names the subject and avoids fabrication', () => {
   assert.doesNotMatch(message, /doğrulanmış bilgi olarak|Soruyu|hangi haber/i);
 });
 
-test('numbered follow-up resolves the previous item title and searches it specifically', () => {
+test('news memory numbers valid results sequentially and numbered follow-up returns title, summary, and source', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const start = html.indexOf('function resolveNumberedNewsFollowup(query){');
+  const start = html.indexOf('const sessionMemory={lastNewsList:[]};');
   const end = html.indexOf('function buildSearchQuery(query){', start);
   assert.ok(start >= 0 && end > start);
   const context = {
     window: { FoVerseNewsIntent: intent },
-    document: { querySelectorAll: () => [{ innerText: 'Güncel gündem başlıkları\n1. İlk haber\n8. Türkiye NATO ilişkilerinde yeni gelişme' }] },
+    esc: (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
   };
-  vm.runInNewContext(html.slice(start, end) + '\nthis.resolveNumberedNewsFollowup=resolveNumberedNewsFollowup;', context);
-  const resolved = context.resolveNumberedNewsFollowup('8. Haber hakkında biraz daha detay verir misin?');
-  assert.equal(resolved, 'Haber detayı Türkiye NATO ilişkilerinde yeni gelişme');
-
-  const queryStart = html.indexOf('function buildSearchQuery(query){');
-  const queryEnd = html.indexOf('async function searchWeb(query)', queryStart);
-  assert.ok(queryStart >= 0 && queryEnd > queryStart);
-  vm.runInNewContext(html.slice(queryStart, queryEnd) + '\nthis.buildSearchQuery=buildSearchQuery;', context);
-  assert.equal(context.buildSearchQuery(resolved), 'Türkiye NATO ilişkilerinde yeni gelişme');
+  vm.runInNewContext(html.slice(start, end) + '\nthis.sessionMemory=sessionMemory;this.rememberNewsList=rememberNewsList;this.numberedNewsItem=numberedNewsItem;this.numberedNewsAnswer=numberedNewsAnswer;this.resolveNumberedNewsFollowup=resolveNumberedNewsFollowup;', context);
+  context.rememberNewsList([
+    { title: '', url: 'https://example.com/invalid' },
+    { title: 'Türkiye NATO ilişkilerinde yeni gelişme', snippet: 'Görüşme bugün yapıldı.', url: 'https://example.com/nato' },
+  ]);
+  assert.equal(context.sessionMemory.lastNewsList[0].number, 1);
+  const item = context.numberedNewsItem('1. haber hakkında biraz daha detay verir misin?');
+  assert.equal(item.title, 'Türkiye NATO ilişkilerinde yeni gelişme');
+  const answer = context.numberedNewsAnswer(item);
+  assert.match(answer, /Türkiye NATO ilişkilerinde yeni gelişme/);
+  assert.match(answer, /Görüşme bugün yapıldı\./);
+  assert.match(answer, /href="https:\/\/example\.com\/nato"/);
+  assert.match(answer, /Kaynak:/);
+  const resolved = context.resolveNumberedNewsFollowup('1. haber hakkında biraz daha detay verir misin?');
+  assert.match(resolved, /Haber detayı Türkiye NATO ilişkilerinde yeni gelişme/);
+  assert.match(resolved, /Kaynak: https:\/\/example\.com\/nato/);
 });
 
 test('client detail rendering is a short single-story response, not the general news list', () => {
@@ -109,6 +116,29 @@ test('client detail rendering is a short single-story response, not the general 
   assert.equal((answer.match(/<li>/g) || []).length, 3);
   assert.doesNotMatch(answer, /İlgili haber 4/);
   assert.doesNotMatch(answer, /İlgili haber 1<\/a><br>/);
+});
+
+test('priority intents, categories, and Istanbul clock are recognized', () => {
+  assert.equal(intent.classifyIntent('Bugün dolar kaç TL?'), 'CURRENCY');
+  assert.equal(intent.classifyIntent('Euro kaç lira?'), 'CURRENCY');
+  assert.equal(intent.classifyIntent('İstanbul’da saat kaç?'), 'TIME');
+  assert.equal(intent.classifyIntent('X trendleri ve Instagram gündemi'), 'SOCIAL');
+  for (const prompt of ['Oyun gündemi', 'Ekonomi haberi', 'Siyaset haberleri', 'Teknoloji', 'Spor', 'Sağlık', 'Dünya', 'Son dakika']) {
+    assert.equal(intent.classifyIntent(prompt), 'NEWS_CATEGORY', prompt);
+  }
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /Europe\/Istanbul/);
+  assert.match(html, /setInterval\(clock,1000\)/);
+  assert.match(html, /api\.frankfurter\.app\/latest\?from=/);
+  assert.match(html, /#38bdf8/);
+  assert.match(html, /#7dd3fc/);
+});
+
+test('numbered memory follow-up must not trigger live search', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /const needsSearch=intent==='NEWS_CATEGORY'\|\|intent==='SOCIAL'\|\|\(!numberedItem&&/);
+  assert.match(html, /else if\(numberedItem\)answer=numberedNewsAnswer\(numberedItem\)/);
 });
 
 test('high-contrast chat, news links and contrast styles are present', () => {

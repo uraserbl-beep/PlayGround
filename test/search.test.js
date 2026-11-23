@@ -22,6 +22,25 @@ async function invoke(body, method = 'POST') {
   return res;
 }
 
+test('RSS description that merely repeats the headline is replaced by an honest fallback', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (input) => {
+    if (new URL(input).hostname === 'news.google.com') {
+      return { ok: true, async text() { return '<rss><channel><item><title>İsrail B planı gündemde - Örnek Haber</title><link>https://example.com/israil-b-plani</link><description>İsrail B planı gündemde</description></item></channel></rss>'; } };
+    }
+    throw new Error('Unexpected fetch');
+  };
+  try {
+    const res = await invoke({ query: 'İsrail B planı haber detayı', count: 8 }, 'POST');
+    assert.equal(res.statusCode, 200);
+    const item = res.payload.items[0];
+    assert.equal(item.title, 'İsrail B planı gündemde');
+    assert.equal(item.source, 'Örnek Haber');
+    assert.notEqual(item.snippet, item.title);
+    assert.ok(item.snippet.length > 0);
+  } finally { global.fetch = originalFetch; }
+});
+
 async function withCredentials(fn) {
   const previousKey = process.env.GOOGLE_SEARCH_API_KEY;
   const previousCx = process.env.GOOGLE_SEARCH_CX;

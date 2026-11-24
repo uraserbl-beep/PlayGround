@@ -12,11 +12,13 @@
   const topics = [
     { label: 'Siyaset gündemi', query: 'Türkiye siyaset haberleri son dakika', terms: ['siyaset', 'politika'] },
     { label: 'Ekonomi gündemi', query: 'Türkiye ekonomi haberleri son dakika', terms: ['ekonomi', 'finans', 'borsa'] },
-    { label: 'Oyun gündemi', query: 'Oyun gündemi son dakika oyun haberleri Steam PlayStation Xbox Nintendo 2026', terms: ['oyun gundemi', 'oyun haberleri', 'oyunlarda ne var', 'gaming news', 'oyun sektoru gundemi'] },
-    { label: 'Dünya gündemi', query: 'Dünya gündem haberleri son dakika', terms: ['dunya'] },
+    { label: 'Oyun gündemi', query: 'Oyun gündemi son dakika oyun haberleri Steam PlayStation Xbox Nintendo 2026', terms: ['oyun gundemi', 'oyun haberleri', 'oyunlarda ne var', 'gaming news', 'oyun sektoru gundemi', 'oyun', 'oyunlarda'] },
+    { label: 'Sağlık gündemi', query: 'Sağlık haberleri son dakika', terms: ['saglik', 'doktor', 'hastane'] },
+    { label: 'Dünya gündemi', query: 'Dünya gündem haberleri son dakika', terms: ['dunya', 'uluslararasi'] },
     { label: 'Türkiye gündemi', query: 'Türkiye gündem haberleri son dakika', terms: ['turkiye'] },
-    { label: 'Teknoloji gündemi', query: 'Teknoloji haberleri son dakika', terms: ['teknoloji'] },
-    { label: 'Spor gündemi', query: 'Spor haberleri son dakika', terms: ['spor'] },
+    { label: 'Teknoloji gündemi', query: 'Teknoloji haberleri son dakika', terms: ['teknoloji', 'yapay zeka', 'bilgisayar', 'telefon'] },
+    { label: 'Spor gündemi', query: 'Spor haberleri son dakika', terms: ['spor', 'futbol', 'basketbol'] },
+    { label: 'Son dakika', query: 'Türkiye son dakika haberleri', terms: ['son dakika'] },
     { label: 'Güncel gündem', query: 'Türkiye ve dünya gündem son dakika haberleri', terms: ['gundem', 'haber', 'son dakika', 'ne var', 'neler oldu', 'neler oluyor', 'guncel'] },
   ];
 
@@ -25,8 +27,18 @@
     return topics.find((topic) => topic.terms.some((term) => normalized.includes(normalize(term)))) || null;
   }
 
+  function classifyIntent(query) {
+    const n = normalize(query);
+    if (/\b(dolar|usd|eur|euro|sterlin|gbp|jpy|yen(?:i)?|chf|frank|cad|aud|cny|yuan|tl|lira|kur|kurlar|exchange|currency|doviz)\b/.test(n)) return 'CURRENCY';
+    if (/\b(saat kac|saat su an kac|su an saat kac|saat su an|saat kac oldu|current time|what time|tarih nedir|bugun tarih ne|bugun ayin kaci|bugun gunlerden ne|bugunun tarihi|today.?s date|what day is it)\b/.test(n)) return 'TIME';
+    if (/\b(sosyal medya|twitter|x hesabi|x hesab|instagram|tiktok|trend topic|trendler|gundem basligi|viral)\b/.test(n)) return 'SOCIAL';
+    if (/\b(siyaset|ekonomi|oyun|gundem|haber|son dakika|spor|teknoloji|saglik|dunya|turkiye)\b/.test(n) || topicFor(query)) return 'NEWS_CATEGORY';
+    return 'GENERAL';
+  }
+
   function isNewsIntent(query) {
-    return topicFor(query) !== null;
+    const intent = classifyIntent(query);
+    return intent === 'NEWS_CATEGORY' || intent === 'SOCIAL';
   }
 
   function isNewsDetailRequest(query) {
@@ -96,7 +108,7 @@
     return `Şu anda ${topic.toLocaleLowerCase('tr-TR')} için canlı haber sonuçlarını alamadım. Kaynaklara erişemediğim için güncel gelişmeleri doğrulanmış bilgi olarak aktaramıyorum.`;
   }
 
-  const api = { isNewsIntent, isNewsDetailRequest, detailSearchQuery, detailSearchQueries, detailSubject, topicFor, searchQuery, failureMessage };
+  const api = { classifyIntent, isNewsIntent, isNewsDetailRequest, detailSearchQuery, detailSearchQueries, detailSubject, topicFor, searchQuery, failureMessage };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.FoVerseNewsIntent = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -80,6 +80,16 @@ test('numbered follow-up resolves the previous item title and searches it specif
   const context = {
     window: { FoVerseNewsIntent: intent },
     document: { querySelectorAll: () => [{ innerText: 'Güncel gündem başlıkları\n1. İlk haber\n8. Türkiye NATO ilişkilerinde yeni gelişme' }] },
+    lastShownNews: [
+      { title: 'İlk haber', url: 'https://example.com/1', snippet: '' },
+      { title: 'İkinci haber', url: 'https://example.com/2', snippet: '' },
+      { title: 'Üçüncü haber', url: 'https://example.com/3', snippet: '' },
+      { title: 'Dördüncü haber', url: 'https://example.com/4', snippet: '' },
+      { title: 'Beşinci haber', url: 'https://example.com/5', snippet: '' },
+      { title: 'Altıncı haber', url: 'https://example.com/6', snippet: '' },
+      { title: 'Yedinci haber', url: 'https://example.com/7', snippet: '' },
+      { title: 'Türkiye NATO ilişkilerinde yeni gelişme', url: 'https://example.com/8', snippet: '' },
+    ],
   };
   vm.runInNewContext(html.slice(start, end) + '\nthis.resolveNumberedNewsFollowup=resolveNumberedNewsFollowup;', context);
   const resolved = context.resolveNumberedNewsFollowup('8. Haber hakkında biraz daha detay verir misin?');

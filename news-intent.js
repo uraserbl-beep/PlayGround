@@ -19,7 +19,7 @@
     { label: 'Teknoloji gündemi', query: 'Teknoloji haberleri son dakika', terms: ['teknoloji', 'yapay zeka', 'bilgisayar', 'telefon'] },
     { label: 'Spor gündemi', query: 'Spor haberleri son dakika', terms: ['spor', 'futbol', 'basketbol'] },
     { label: 'Son dakika', query: 'Türkiye son dakika haberleri', terms: ['son dakika'] },
-    { label: 'Güncel gündem', query: 'Türkiye ve dünya gündem son dakika haberleri', terms: ['gundem', 'haber', 'ne var', 'neler oldu', 'neler oluyor', 'guncel'] },
+    { label: 'Güncel gündem', query: 'Türkiye ve dünya gündem son dakika haberleri', terms: ['gundem', 'haber', 'son dakika', 'ne var', 'neler oldu', 'neler oluyor', 'guncel'] },
   ];
 
   function topicFor(query) {
@@ -37,7 +37,8 @@
   }
 
   function isNewsIntent(query) {
-    return classifyIntent(query) === 'NEWS_CATEGORY';
+    const intent = classifyIntent(query);
+    return intent === 'NEWS_CATEGORY' || intent === 'SOCIAL';
   }
 
   function isNewsDetailRequest(query) {

@@ -22,6 +22,7 @@ async function invoke(body, method = 'POST') {
   return res;
 }
 
+
 test('live search remains HTTP(S)-only and bounded', async () => {
   const originalFetch = global.fetch;
   global.fetch = async (url) => {
@@ -42,7 +43,6 @@ test('live search remains HTTP(S)-only and bounded', async () => {
     assert.equal(res.payload.items[0].url, 'https://example.com/haber');
   } finally { global.fetch = originalFetch; }
 });
-
 test('RSS description that merely repeats the headline stays empty', async () => {
   const originalFetch = global.fetch;
   global.fetch = async (input) => {

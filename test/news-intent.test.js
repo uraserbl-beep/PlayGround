@@ -141,11 +141,13 @@ test('numbered memory follow-up must not trigger live search', () => {
   assert.match(html, /else if\(numberedItem\)answer=numberedNewsAnswer\(numberedItem\)/);
 });
 
-test('high-contrast chat, news links and contrast styles are present', () => {
+test('classic light chat, readable answers and news link colors are present', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /\.message\.ai \.answer/);
-  assert.match(html, /color:#f3f4f6|color:#fff|#e5e7eb/i);
-  assert.match(html, /\.answer a|answer.*a|target="_blank"/);
+  assert.match(html, /body\{[^}]*background:var\(--bg\)/);
+  assert.match(html, /\.answer\{[^}]*font-size:15px;line-height:1\.65/);
+  assert.match(html, /\.answer a\{color:#38bdf8/);
+  assert.match(html, /\.answer a:hover\{color:#7dd3fc/);
+  assert.doesNotMatch(html, /liveWallpaper|wallpaper-shade|wallpaper-toggle/);
 });
 
 test('client HTML loads the reusable news module and wires topic fallback', () => {

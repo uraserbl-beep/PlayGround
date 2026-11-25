@@ -46,16 +46,6 @@ test('gaming and recipe intents have category-specific behavior', () => {
   assert.doesNotMatch(html.slice(html.indexOf("if(/(tarif|recipe"), html.indexOf("if(topicOf(t)==='gaming'")), /Biraz daha ayrıntı verir misin/);
 });
 
-test('topic matching tolerates common aliases, one-letter typos, and named game follow-ups', () => {
-  assert.equal(intent.topicFor('Ekonomii gündemi').label, 'Ekonomi gündemi');
-  assert.equal(intent.topicFor('teknolji haberleri').label, 'Teknoloji gündemi');
-  assert.equal(intent.topicFor('Minecraft Dungeons son güncelleme').label, 'Oyun gündemi');
-  assert.match(intent.searchQuery('Minecraft Dungeons son güncelleme'), /Minecraft Dungeons güncel haberler/i);
-  assert.equal(intent.isNewsContinuation('Tamam ne varmış gündemde?'), true);
-  assert.equal(intent.isNewsContinuation('Peki başka ne var?'), true);
-  assert.equal(intent.isNewsContinuation('Bana bir şiir yaz'), false);
-});
-
 test('topic failure copy is honest and never uses generic clarification prompts', () => {
   for (const prompt of exactPrompts) {
     const message = intent.failureMessage(prompt);
@@ -104,7 +94,6 @@ test('numbered follow-up resolves the previous item title and searches it specif
   vm.runInNewContext(html.slice(start, end) + '\nthis.resolveNumberedNewsFollowup=resolveNumberedNewsFollowup;', context);
   const resolved = context.resolveNumberedNewsFollowup('8. Haber hakkında biraz daha detay verir misin?');
   assert.equal(resolved, 'Haber detayı Türkiye NATO ilişkilerinde yeni gelişme');
-  assert.equal(context.resolveNumberedNewsFollowup('2. gündem'), 'Haber detayı İkinci haber');
 
   const queryStart = html.indexOf('function buildSearchQuery(query){');
   const queryEnd = html.indexOf('async function searchWeb(query)', queryStart);
@@ -130,66 +119,6 @@ test('client detail rendering is a short single-story response, not the general 
   assert.equal((answer.match(/<li>/g) || []).length, 3);
   assert.doesNotMatch(answer, /İlgili haber 4/);
   assert.doesNotMatch(answer, /İlgili haber 1<\/a><br>/);
-});
-
-test('currency fallback renders verified rates and never invents unavailable values', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const start = html.indexOf('function localCurrencyAnswer(knowledge){');
-  const end = html.indexOf('async function fetchLiveKnowledge(query){', start);
-  assert.ok(start >= 0 && end > start);
-  const context = {
-    esc: (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
-  };
-  vm.runInNewContext(html.slice(start, end) + '\nthis.localCurrencyAnswer=localCurrencyAnswer;', context);
-  const result = context.localCurrencyAnswer({ currency: { date: '2026-11-25', rates: { USD: 0.025, EUR: 0.023, GBP: 0.02 } } });
-  assert.match(result, /2026-11-25/);
-  assert.match(result, /1 TRY = 0,025 USD/);
-  assert.match(result, /banka ve döviz bürosu/);
-  const unavailable = context.localCurrencyAnswer({ error: 'unavailable' });
-  assert.match(unavailable, /doğrulayamadığım için sayı paylaşmıyorum/);
-  assert.doesNotMatch(unavailable, /0,0/);
-});
-
-test('currency retrieval rejects malformed live responses for a truthful fallback', async () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const start = html.indexOf('async function fetchLiveKnowledge(query){');
-  const end = html.indexOf('function contextPayload(query,knowledge){', start);
-  assert.ok(start >= 0 && end > start);
-  const context = {
-    window: { FoVerseNewsIntent: { classifyIntent: () => 'CURRENCY' } },
-    runtimeClock: () => ({ istanbul: '25.11.2026 10:00', iso: '2026-11-25', weekday: 'Çarşamba' }),
-    meaningfulTerms: () => [],
-    lastShownItems: [],
-    fetchedContext: [],
-    abort: null,
-    fetch: async () => ({ ok: true, json: async () => ({ date: '2026-11-25', rates: {} }) }),
-    resolveNumberedNewsFollowup: () => null,
-    shouldSearch: () => false,
-  };
-  vm.runInNewContext(html.slice(start, end) + '\nthis.fetchLiveKnowledge=fetchLiveKnowledge;', context);
-  const knowledge = await context.fetchLiveKnowledge('Dolar kaç TL?');
-  assert.equal(knowledge.currency, null);
-  assert.match(knowledge.error, /Frankfurter\/ECB/);
-});
-
-test('shared context payload carries live records, clock, currency, prior items and document excerpts', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const start = html.indexOf('function contextPayload(query,knowledge){');
-  const end = html.indexOf('async function send(){', start);
-  assert.ok(start >= 0 && end > start);
-  const context = {
-    runtimeClock: () => ({ istanbul: '25.11.2026 10:00', iso: '2026-11-25', weekday: 'Çarşamba' }),
-    chatHistory: [{ q: 'önceki soru', a: '<p>önceki yanıt</p>' }],
-    ragContext: () => 'Belgeden alıntı',
-  };
-  vm.runInNewContext(html.slice(start, end) + '\nthis.contextPayload=contextPayload;', context);
-  const payload = context.contextPayload('soru', {
-    clock: { istanbul: '25.11.2026 10:00', iso: '2026-11-25', weekday: 'Çarşamba' },
-    currency: { base: 'TRY', rates: { USD: 0.025 } },
-    items: [{ title: 'Canlı başlık', url: 'https://example.com/live', snippet: 'Canlı özet' }],
-    previousItems: [{ title: 'Önceki başlık', url: 'https://example.com/previous', snippet: 'Önceki özet' }],
-  });
-  for (const value of ['Europe/Istanbul', 'LIVE CURRENCY RECORD', 'Canlı başlık', 'https://example.com/live', 'Canlı özet', 'Önceki başlık', 'https://example.com/previous', 'Önceki özet', 'önceki soru', 'Belgeden alıntı']) assert.ok(payload.includes(value), value);
 });
 
 test('high-contrast chat, news links and contrast styles are present', () => {

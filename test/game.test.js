@@ -11,9 +11,12 @@ test('game page is self-contained and exposes the required controls', () => {
   assert.match(html, /<canvas id="game"/);
   assert.match(html, /id="primaryBtn"/);
   assert.match(html, /id="pauseBtn"/);
+  assert.match(html, /id="dashBtn"/);
+  assert.match(html, /id="soundBtn"/);
   assert.match(html, /id="score"/);
   assert.match(html, /id="best"/);
   assert.match(html, /localStorage/);
+  assert.match(html, /DASH_COOLDOWN/);
   assert.doesNotMatch(html, /<script[^>]+src=/i);
   assert.doesNotMatch(html, /https?:\/\//i);
 });

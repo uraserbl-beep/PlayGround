@@ -42,6 +42,8 @@ test('ChronoPulse pages are synchronized and use the requested dark link colors'
   assert.match(html, /--accent-hover:\s*#7dd3fc/i);
   assert.match(html, /Europe\/Istanbul/);
   assert.match(html, /dateStyle:\s*"full",\s*timeStyle:\s*"medium"/);
+  assert.match(html, /Tarih Arşivi · Tarih Öncesi → 2026/);
+  assert.match(html, /Kavramların Tarihi/);
 });
 
 test('clock and agenda/technology refresh timers are configured independently', () => {
@@ -69,14 +71,14 @@ test('agenda categories maintain the visible numbered list for detail follow-ups
 
 test('history filters and technology queries show their matching archive/stream', () => {
   const { context, elements } = loadChronoPulse();
-  assert.equal(context.appState.historyItems.length, 4);
+  assert.equal(context.appState.historyItems.length, 25);
   assert.equal(context.appState.techItems.length, 3);
 
   context.window.selectHistoryCat('Antik Çağ');
   const historyList = elements.get('history-list').innerHTML;
-  assert.match(historyList, /Yazı, Kent Devletleri/);
-  assert.doesNotMatch(historyList, /Matbaa, Sanayi/);
-  assert.match(context.runQuery('tarihçe'), /Var Olan Şeylerin Tarihçesi/);
+  assert.match(historyList, /Klasik Akdeniz ve Düşünce Gelenekleri/);
+  assert.doesNotMatch(historyList, /Neolitik Dönüşüm/);
+  assert.match(context.runQuery('tarihçe'), /Tarih Arşivi/);
   assert.match(context.runQuery('teknoloji'), /Otonom Ajanlar ve Çok Modlu Sistemler/);
   assert.match(elements.get('tech-list').innerHTML, /Yeni Nesil Çipler/);
 });

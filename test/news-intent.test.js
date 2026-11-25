@@ -135,3 +135,81 @@ test('client HTML loads the reusable news module and wires topic fallback', () =
   assert.match(html, /FoVerseNewsIntent\?\.searchQuery/);
   assert.match(html, /localSearchAnswer\(searchResult.*effectiveQuery/);
 });
+
+test('conversation memory resolves numbered references to items from the prior displayed list', () => {
+  const firstResults = [
+    { title: 'Minecraft Dungeons erhält ein neues Update', url: 'https://example.com/minecraft', snippet: 'Update details' },
+    { title: 'Türkiye için yeni teknoloji yatırımı', url: 'https://example.com/technology', snippet: 'Investment details' },
+  ];
+  const memory = intent.rememberTurn(intent.createConversationMemory(), 'Oyun gündeminde ne var?', 'İki güncel başlık:', firstResults);
+  const reference = intent.resolveReference('2. Haber hakkında detay verir misin?', memory);
+
+  assert.equal(reference.isReference, true);
+  assert.equal(reference.number, 2);
+  assert.equal(reference.subject, firstResults[1].title);
+  assert.equal(reference.item.url, firstResults[1].url);
+  assert.match(intent.memoryContext(memory), /Minecraft Dungeons/);
+  assert.match(intent.memoryContext(memory), /Türkiye için yeni teknoloji yatırımı/);
+});
+
+test('conversation memory keeps prior-list subjects available for natural follow-ups', () => {
+  const memory = intent.rememberTurn(intent.createConversationMemory(), 'Oyun haberleri', 'Minecraft Dungeons için yeni içerik duyuruldu.', [
+    { title: 'Minecraft Dungeons yeni içerik alıyor', url: 'https://example.com/dungeons', snippet: 'A new update was announced.' },
+  ]);
+  const reference = intent.resolveReference('Bunun ayrıntıları neler?', memory);
+
+  assert.equal(reference.isReference, true);
+  assert.match(reference.subject, /Minecraft Dungeons/);
+  assert.match(reference.query, /konu: Minecraft Dungeons/);
+});
+
+test('currency, time, technology and date prompts are identifiable intents', () => {
+  assert.equal(intent.classifyIntent('Dolar kuru bugün kaç?'), 'CURRENCY');
+  assert.equal(intent.classifyIntent('What time is it?'), 'TIME');
+  assert.equal(intent.classifyIntent('En son teknoloji haberleri'), 'NEWS_CATEGORY');
+  assert.equal(intent.classifyIntent('Bugünün tarihi nedir?'), 'TIME');
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /if\(intent==='CURRENCY'\)return true/);
+  assert.match(html, /if\(intent==='TIME'\)return false/);
+  assert.match(html, /İstanbul’da şimdi/);
+});
+
+test('local date and time fallback answers direct English and Turkish questions', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = html.indexOf('function localAnswer(q){');
+  const end = html.indexOf('async function discoverModels', start);
+  assert.ok(start >= 0 && end > start);
+  const context = {
+    normText: (value) => String(value || '').toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i'),
+    ragContext: () => '',
+    runtimeClock: () => ({ istanbul: 'Çarşamba, 25.11.2026 12:34:56', iso: '2026-11-25', weekday: 'Çarşamba', localZone: 'UTC', now: new Date('2026-11-25T09:34:56Z') }),
+    esc: (value) => String(value),
+    attachedText: '',
+    topicOf: () => '',
+    window: { FoVerseNewsIntent: intent },
+    conversationMemory: intent.createConversationMemory(),
+  };
+  vm.runInNewContext(html.slice(start, end) + '\nthis.localAnswer=localAnswer;', context);
+
+  assert.match(context.localAnswer('What time is it?'), /12:34:56/);
+  assert.match(context.localAnswer('Bugünün tarihi nedir?'), /2026-11-25/);
+});
+
+test('currency search results preserve source links and disclose live-data failure', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = html.indexOf('function localSearchAnswer(items,reason,query){');
+  const end = html.indexOf('async function send(){', start);
+  assert.ok(start >= 0 && end > start);
+  const context = {
+    window: { FoVerseNewsIntent: intent },
+    esc: (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
+  };
+  vm.runInNewContext(html.slice(start, end) + '\nthis.localSearchAnswer=localSearchAnswer;', context);
+
+  const result = context.localSearchAnswer([{ title: 'USD/TRY live rates', url: 'https://example.com/rates', snippet: 'Updated at 12:00' }], '', 'Dolar kuru kaç?');
+  assert.match(result, /kur ve zaman bilgisi/);
+  assert.match(result, /https:\/\/example\.com\/rates/);
+  const failure = context.localSearchAnswer(null, 'kaynak erişilemiyor', 'Dolar kuru kaç?');
+  assert.match(failure, /güncel fiyat vermiyorum/);
+});

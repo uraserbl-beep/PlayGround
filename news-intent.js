@@ -12,7 +12,7 @@
   const topics = [
     { label: 'Siyaset gündemi', query: 'Türkiye siyaset haberleri son dakika', terms: ['siyaset', 'politika'] },
     { label: 'Ekonomi gündemi', query: 'Türkiye ekonomi haberleri son dakika', terms: ['ekonomi', 'finans', 'borsa'] },
-    { label: 'Oyun gündemi', query: 'Oyun gündemi son dakika oyun haberleri Steam PlayStation Xbox Nintendo 2026', terms: ['oyun gundemi', 'oyun haberleri', 'oyunlarda ne var', 'gaming news', 'oyun sektoru gundemi', 'oyun', 'oyunlarda'] },
+    { label: 'Oyun gündemi', query: 'Oyun gündemi son dakika oyun haberleri Steam PlayStation Xbox Nintendo 2026', terms: ['oyun gundemi', 'oyun haberleri', 'oyunlarda ne var', 'gaming news', 'oyun sektoru gundemi', 'oyun', 'oyunlarda', 'minecraft', 'dungeons', 'steam', 'playstation', 'xbox', 'nintendo'] },
     { label: 'Sağlık gündemi', query: 'Sağlık haberleri son dakika', terms: ['saglik', 'doktor', 'hastane'] },
     { label: 'Dünya gündemi', query: 'Dünya gündem haberleri son dakika', terms: ['dunya', 'uluslararasi'] },
     { label: 'Türkiye gündemi', query: 'Türkiye gündem haberleri son dakika', terms: ['turkiye'] },
@@ -22,9 +22,45 @@
     { label: 'Güncel gündem', query: 'Türkiye ve dünya gündem son dakika haberleri', terms: ['gundem', 'haber', 'son dakika', 'ne var', 'neler oldu', 'neler oluyor', 'guncel'] },
   ];
 
+  function editDistance(left, right) {
+    const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= left.length; i += 1) {
+      let diagonal = row[0];
+      row[0] = i;
+      for (let j = 1; j <= right.length; j += 1) {
+        const above = row[j];
+        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diagonal + (left[i - 1] === right[j - 1] ? 0 : 1));
+        diagonal = above;
+      }
+    }
+    return row[right.length];
+  }
+
   function topicFor(query) {
     const normalized = normalize(query);
-    return topics.find((topic) => topic.terms.some((term) => normalized.includes(normalize(term)))) || null;
+    const direct = topics.slice(0, -1).find((topic) => topic.terms.some((term) => normalized.includes(normalize(term))));
+    if (direct) return direct;
+
+    const words = normalized.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    const fuzzyTerms = [
+      ['siyaset', 'politika'], ['ekonomi', 'finans'], ['oyun', 'gaming'],
+      ['saglik', 'doktor'], ['dunya', 'uluslararasi'], ['turkiye'],
+      ['teknoloji', 'yapay zeka'], ['spor', 'futbol'], ['gundem', 'haber'],
+    ];
+    for (const aliases of fuzzyTerms) {
+      const topic = topics.find((item) => item.terms.some((term) => aliases.includes(normalize(term))));
+      if (!topic) continue;
+      if (words.some((word) => aliases.some((term) => term.length >= 5 && word.length >= 5 && editDistance(word, term) <= 1))) return topic;
+    }
+    return topics[topics.length - 1].terms.some((term) => normalized.includes(normalize(term)))
+      ? topics[topics.length - 1]
+      : null;
+  }
+
+  function isNewsContinuation(query) {
+    const normalized = normalize(query).replace(/[?!.]+$/g, '').trim();
+    return /^(?:(?:tamam|peki|evet|aynen|olur|ok|okay|yes|devam(?: et)?|continue)[, ]+)*(?:ne var(?:mis)?(?:ti)?(?:\s+gundemde)?|gundemde ne var(?:mis)?|baska ne var(?:mis)?|sonra ne oldu|bunu(?: da)? (?:anlat|ozetle|acikla)|daha fazla (?:bilgi|detay)|bu konuda (?:devam et|anlat)|haberleri (?:goster|listele))$/i.test(normalized)
+      || /^(?:tamam|evet|aynen|olur|ok|okay|yes|devam(?: et)?|continue|bunu ozetle|ozetle)$/i.test(normalized);
   }
 
   function classifyIntent(query) {
@@ -44,8 +80,8 @@
   function isNewsDetailRequest(query) {
     const normalized = normalize(query);
     const detailSignal = /(?:detay|detaylandir|detayli|ayrint|hakkinda|acikla|bilgi ver|biraz daha)/.test(normalized);
-    const newsSignal = /(?:haber|madde|baslik|konu|nato|turkiye)/.test(normalized);
-    const numberedFollowup = /^\s*[1-9]\d?\s*[.)]?\s*(?:haber|madde|baslik)/.test(normalized);
+    const newsSignal = /(?:haber|madde|baslik|konu|nato|turkiye|gundem)/.test(normalized);
+    const numberedFollowup = /^\s*[1-9]\d?\s*[.)]?\s*(?:haber|madde|baslik|gundem)/.test(normalized);
     return detailSignal && (newsSignal || numberedFollowup);
   }
 
@@ -94,6 +130,8 @@
 
   function searchQuery(query) {
     if (isNewsDetailRequest(query)) return detailSearchQuery(query);
+    const gameTitle = String(query || '').match(/\bminecraft(?:\s+dungeons?)?\b/i);
+    if (gameTitle) return `${gameTitle[0].replace(/\s+/g, ' ').trim()} güncel haberler güncelleme`;
     return topicFor(query)?.query || '';
   }
 
@@ -108,7 +146,7 @@
     return `Şu anda ${topic.toLocaleLowerCase('tr-TR')} için canlı haber sonuçlarını alamadım. Kaynaklara erişemediğim için güncel gelişmeleri doğrulanmış bilgi olarak aktaramıyorum.`;
   }
 
-  const api = { classifyIntent, isNewsIntent, isNewsDetailRequest, detailSearchQuery, detailSearchQueries, detailSubject, topicFor, searchQuery, failureMessage };
+  const api = { classifyIntent, isNewsIntent, isNewsDetailRequest, isNewsContinuation, detailSearchQuery, detailSearchQueries, detailSubject, topicFor, searchQuery, failureMessage };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.FoVerseNewsIntent = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

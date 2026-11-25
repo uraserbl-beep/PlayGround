@@ -30,9 +30,9 @@
   function classifyIntent(query) {
     const n = normalize(query);
     if (/^\s*\d{1,2}\s*[.)]?\s*(?:(?:haber|madde|baslik|oyun|kaynak)\b)?/.test(n) && /\d/.test(n)) return 'NUMBERED_REFERENCE';
-    if (/\b(bu|bunun|buna|bunu|bundan|bunlar|bunlarin|onun|ona|onu|ondan|o|onceki|az onceki|yukaridaki|this|that|it|they|these|those|previous one)\b/.test(n)) return 'CONTEXT_REFERENCE';
     if (/\b(dolar|usd|eur|euro|sterlin|gbp|jpy|yen(?:i)?|chf|frank|cad|aud|cny|yuan|tl|lira|kur|kurlar|exchange|currency|doviz)\b/.test(n)) return 'CURRENCY';
     if (/\b(saat kac|saat su an kac|su an saat kac|saat su an|saat kac oldu|current time|what time|tarih nedir|bugun tarih ne|bugun ayin kaci|bugun gunlerden ne|bugunun tarihi|today.?s date|what day is it)\b/.test(n)) return 'TIME';
+    if (/\b(bu|bunun|buna|bunu|bundan|bunlar|bunlarin|onun|ona|onu|ondan|o|onceki|az onceki|yukaridaki|this|that|it|they|these|those|previous one)\b/.test(n)) return 'CONTEXT_REFERENCE';
     if (/\b(sosyal medya|twitter|x hesabi|x hesab|instagram|tiktok|trend topic|trendler|gundem basligi|viral)\b/.test(n)) return 'SOCIAL';
     if (/\b(siyaset|ekonomi|oyun|gundem|haber|son dakika|spor|teknoloji|saglik|dunya|turkiye)\b/.test(n) || topicFor(query)) return 'NEWS_CATEGORY';
     if (/\b(tarif|recipe|makarna|spagetti|corba|pilav|menemen|tavuk|kek)\b/.test(n)) return 'RECIPE';

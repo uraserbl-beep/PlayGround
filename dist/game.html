@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#05060f">
+  <link rel="icon" href="data:,">
+  <title>Orbit Dash — FoVerse Arcade</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05060f;
+      --panel: rgba(11, 16, 34, 0.78);
+      --line: rgba(148, 163, 184, 0.28);
+      --text: #eef4ff;
+      --muted: #9aa8c7;
+      --cyan: #38bdf8;
+      --violet: #a78bfa;
+      --amber: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 12%, rgba(56, 189, 248, 0.12), transparent 38%),
+        radial-gradient(circle at 85% 80%, rgba(167, 139, 250, 0.12), transparent 34%),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .topbar {
+      position: fixed;
+      z-index: 20;
+      inset: 0 0 auto;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-right));
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      background: linear-gradient(180deg, rgba(5, 6, 15, 0.88), rgba(5, 6, 15, 0.38));
+      backdrop-filter: blur(14px);
+    }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 650;
+      background: rgba(15, 23, 42, 0.55);
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+    }
+    .back:hover { border-color: rgba(56, 189, 248, 0.6); background: rgba(15, 23, 42, 0.85); transform: translateY(-1px); }
+    .back:focus-visible, button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+    .brand {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(238, 244, 255, 0.86);
+      white-space: nowrap;
+    }
+    .brand span { color: var(--cyan); }
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 100svh;
+      min-height: 420px;
+      overflow: hidden;
+    }
+    #game {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .hud {
+      position: absolute;
+      z-index: 5;
+      top: max(78px, calc(64px + env(safe-area-inset-top)));
+      left: 50%;
+      width: min(760px, calc(100% - 24px));
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .stat {
+      min-width: 0;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    }
+    .stat span {
+      display: block;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 750;
+      letter-spacing: 0.14em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .stat b {
+      display: block;
+      margin-top: 2px;
+      font-size: clamp(15px, 2.4vw, 20px);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
+      line-height: 1.15;
+    }
+    #shields { color: var(--cyan); letter-spacing: 0.08em; }
+    .pause {
+      pointer-events: auto;
+      align-self: stretch;
+      width: 46px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.16s ease, background 0.16s ease;
+    }
+    .pause:hover:not(:disabled) { border-color: rgba(56, 189, 248, 0.65); background: rgba(15, 23, 42, 0.92); }
+    .pause:disabled { cursor: default; opacity: 0.45; }
+    .overlay {
+      position: absolute;
+      z-index: 10;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 88px 18px 28px;
+      background: radial-gradient(circle at 50% 42%, rgba(5, 6, 15, 0.12), rgba(5, 6, 15, 0.72));
+      backdrop-filter: blur(7px);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .overlay.show { opacity: 1; visibility: visible; }
+    .panel {
+      width: min(470px, 100%);
+      padding: clamp(22px, 4vw, 34px);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 22px;
+      background:
+        linear-gradient(145deg, rgba(56, 189, 248, 0.09), rgba(167, 139, 250, 0.06) 46%, rgba(11, 16, 34, 0.94)),
+        var(--panel);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      text-align: center;
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--cyan);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+    .panel h1 {
+      margin: 0;
+      font-size: clamp(32px, 7vw, 52px);
+      font-weight: 850;
+      letter-spacing: -0.045em;
+      line-height: 1;
+      text-shadow: 0 8px 30px rgba(56, 189, 248, 0.18);
+    }
+    .panel h1 span { color: var(--cyan); }
+    .panel p {
+      margin: 14px auto 0;
+      max-width: 38ch;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .keys {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 7px;
+      margin: 18px 0 0;
+    }
+    .keys span {
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(15, 23, 42, 0.65);
+      color: rgba(238, 244, 255, 0.8);
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 9px;
+      margin-top: 22px;
+    }
+    .primary, .secondary {
+      min-height: 46px;
+      padding: 0 22px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 750;
+      transition: transform 0.16s ease, filter 0.16s ease, border-color 0.16s ease;
+    }
+    .primary {
+      border: 1px solid rgba(125, 211, 252, 0.6);
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(14, 165, 233, 0.28);
+    }
+    .primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .secondary {
+      border: 1px solid var(--line);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+    }
+    .secondary:hover { border-color: rgba(148, 163, 184, 0.6); transform: translateY(-1px); }
+    .secondary[hidden] { display: none; }
+    .touch-hint {
+      position: absolute;
+      z-index: 4;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 7px 12px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 999px;
+      background: rgba(5, 6, 15, 0.5);
+      color: rgba(238, 244, 255, 0.62);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .touch-hint { display: none; }
+    }
+    @media (max-width: 560px) {
+      .brand { display: none; }
+      .hud { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+      .hud .stat:nth-child(2) { display: none; }
+      .stat { padding: 7px 9px; }
+      .stat b { font-size: 15px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="/" aria-label="Back to FoVerse AI">← Chat</a>
+    <div class="brand">Orbit <span>Dash</span></div>
+    <a class="back" href="/" aria-label="Back to FoVerse AI">FoVerse AI</a>
+  </header>
+
+  <main class="stage">
+    <canvas id="game" aria-label="Orbit Dash play area. Use arrow keys or drag to steer."></canvas>
+
+    <div class="hud" aria-label="Game statistics">
+      <div class="stat"><span>Score</span><b id="score">0000</b></div>
+      <div class="stat"><span>Best</span><b id="best">0000</b></div>
+      <div class="stat"><span>Shields</span><b id="shields">●●●</b></div>
+      <div class="stat"><span>Level</span><b id="level">1</b></div>
+      <button class="pause" id="pauseBtn" type="button" aria-label="Pause" disabled>❚❚</button>
+    </div>
+
+    <div class="overlay show" id="overlay" aria-hidden="false">
+      <section class="panel" role="dialog" aria-modal="true" aria-labelledby="overlayTitle" aria-describedby="overlayText">
+        <p class="eyebrow">FoVerse Arcade</p>
+        <h1 id="overlayTitle">Orbit <span>Dash</span></h1>
+        <p id="overlayText">Steer through the asteroid field, collect energy cells, and keep your shields online. The field gets faster every level.</p>
+        <div class="keys" aria-label="Controls">
+          <span>← → / A D</span>
+          <span>Drag to steer</span>
+          <span>P / Esc to pause</span>
+        </div>
+        <div class="actions">
+          <button class="primary" id="primaryBtn" type="button">Start run</button>
+          <button class="secondary" id="secondaryBtn" type="button" hidden>Back to chat</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="touch-hint">Drag to steer</div>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const BEST_KEY = 'foverse-orbit-best';
+    const MAX_SHIELDS = 3;
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const ui = {
+      score: document.getElementById('score'),
+      best: document.getElementById('best'),
+      shields: document.getElementById('shields'),
+      level: document.getElementById('level'),
+      pause: document.getElementById('pauseBtn'),
+      overlay: document.getElementById('overlay'),
+      title: document.getElementById('overlayTitle'),
+      text: document.getElementById('overlayText'),
+      primary: document.getElementById('primaryBtn'),
+      secondary: document.getElementById('secondaryBtn'),
+    };
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const held = new Set();
+
+    const state = {
+      mode: 'ready',
+      width: 0,
+      height: 0,
+      dpr: 1,
+      playerX: 0,
+      targetX: 0,
+      playerY: 0,
+      playerR: 15,
+      score: 0,
+      best: readBest(),
+      shields: MAX_SHIELDS,
+      level: 1,
+      elapsed: 0,
+      spawnTimer: 0.8,
+      orbTimer: 2.4,
+      orbStreak: 0,
+      invuln: 0,
+      shake: 0,
+      stars: [],
+      asteroids: [],
+      orbs: [],
+      particles: [],
+      lastTime: 0,
+      hudScore: -1,
+      hudShields: -1,
+      hudLevel: -1,
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function readBest() {
+      try {
+        const value = Number(localStorage.getItem(BEST_KEY));
+        return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    function writeBest() {
+      try {
+        localStorage.setItem(BEST_KEY, String(state.best));
+      } catch (_) {
+        /* Private mode or blocked storage: the run still works. */
+      }
+    }
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      state.width = width;
+      state.height = height;
+      state.dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+      canvas.width = Math.round(width * state.dpr);
+      canvas.height = Math.round(height * state.dpr);
+      ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+      state.playerR = clamp(Math.min(width, height) * 0.028, 12, 18);
+      state.playerY = height - Math.max(62, Math.min(110, height * 0.13));
+      state.playerX = clamp(state.playerX || width / 2, state.playerR, width - state.playerR);
+      state.targetX = clamp(state.targetX || state.playerX, state.playerR, width - state.playerR);
+      for (const asteroid of state.asteroids) {
+        asteroid.x = clamp(asteroid.x, asteroid.r, width - asteroid.r);
+      }
+      initStars();
+    }
+
+    function initStars() {
+      const count = reduceMotion
+        ? 60
+        : Math.min(220, Math.max(70, Math.round((state.width * state.height) / 9000)));
+      const colors = ['#bfdbfe', '#e0e7ff', '#bae6fd', '#fbcfe8'];
+      state.stars = Array.from({ length: count }, () => ({
+        x: rand(0, state.width),
+        y: rand(0, state.height),
+        z: rand(0.25, 1),
+        r: rand(0.4, 1.7),
+        speed: rand(8, 32),
+        color: colors[Math.floor(Math.random() * colors.length)],
+      }));
+    }
+
+    function resetGame() {
+      state.score = 0;
+      state.shields = MAX_SHIELDS;
+      state.level = 1;
+      state.elapsed = 0;
+      state.spawnTimer = 0.75;
+      state.orbTimer = 2.2;
+      state.orbStreak = 0;
+      state.invuln = 0;
+      state.shake = 0;
+      state.asteroids = [];
+      state.orbs = [];
+      state.particles = [];
+      state.playerX = state.width / 2;
+      state.targetX = state.playerX;
+      state.playerY = state.height - Math.max(62, Math.min(110, state.height * 0.13));
+      state.hudScore = -1;
+      state.hudShields = -1;
+      state.hudLevel = -1;
+      syncHud();
+    }
+
+    function startGame() {
+      resetGame();
+      state.mode = 'running';
+      state.lastTime = performance.now();
+      hideOverlay();
+      syncHud();
+    }
+
+    function pauseGame() {
+      if (state.mode !== 'running') return;
+      state.mode = 'paused';
+      showOverlay('paused');
+      syncHud();
+    }
+
+    function resumeGame() {
+      if (state.mode !== 'paused') return;
+      state.mode = 'running';
+      state.lastTime = performance.now();
+      hideOverlay();
+      syncHud();
+    }
+
+    function togglePause() {
+      if (state.mode === 'running') pauseGame();
+      else if (state.mode === 'paused') resumeGame();
+    }
+
+    function endGame() {
+      state.mode = 'over';
+      const finalScore = Math.floor(state.score);
+      if (finalScore > state.best) {
+        state.best = finalScore;
+        writeBest();
+      }
+      burst(state.playerX, state.playerY, '#f97316', 34);
+      showOverlay('over');
+      syncHud();
+    }
+
+    function showOverlay(kind) {
+      let title = 'Orbit <span>Dash</span>';
+      let text = 'Steer through the asteroid field, collect energy cells, and keep your shields online. The field gets faster every level.';
+      let primary = 'Start run';
+      let secondary = null;
+
+      if (kind === 'paused') {
+        title = 'Paused';
+        text = 'Take a breath. The asteroid field will wait for you.';
+        primary = 'Resume run';
+        secondary = { label: 'Restart', action: startGame };
+      } else if (kind === 'over') {
+        const finalScore = Math.floor(state.score);
+        title = 'Run <span>complete</span>';
+        text = 'You scored ' + finalScore + ' points and reached level ' + state.level + '. Best run: ' + state.best + '.';
+        primary = 'Play again';
+        secondary = { label: 'Back to chat', action: () => { window.location.href = '/'; } };
+      }
+
+      ui.title.innerHTML = title;
+      ui.text.textContent = text;
+      ui.primary.textContent = primary;
+      if (secondary) {
+        ui.secondary.hidden = false;
+        ui.secondary.textContent = secondary.label;
+        ui.secondary.onclick = secondary.action;
+      } else {
+        ui.secondary.hidden = true;
+        ui.secondary.onclick = null;
+      }
+      ui.overlay.classList.add('show');
+      ui.overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideOverlay() {
+      ui.overlay.classList.remove('show');
+      ui.overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    function syncHud() {
+      const score = Math.floor(state.score);
+      if (score !== state.hudScore) {
+        ui.score.textContent = String(score).padStart(4, '0');
+        state.hudScore = score;
+      }
+      if (state.shields !== state.hudShields) {
+        const filled = Math.max(0, state.shields);
+        ui.shields.textContent = '●'.repeat(filled) + '○'.repeat(Math.max(0, MAX_SHIELDS - filled));
+        state.hudShields = state.shields;
+      }
+      if (state.level !== state.hudLevel) {
+        ui.level.textContent = String(state.level);
+        state.hudLevel = state.level;
+      }
+      ui.best.textContent = String(state.best).padStart(4, '0');
+      const canPause = state.mode === 'running' || state.mode === 'paused';
+      ui.pause.disabled = !canPause;
+      ui.pause.textContent = state.mode === 'paused' ? '▶' : '❚❚';
+      ui.pause.setAttribute('aria-label', state.mode === 'paused' ? 'Resume' : 'Pause');
+    }
+
+    function spawnAsteroid() {
+      const r = rand(13, 28) * (state.width < 480 ? 0.86 : 1);
+      const points = 8;
+      const verts = [];
+      for (let i = 0; i < points; i += 1) {
+        const angle = (i / points) * Math.PI * 2;
+        const radius = rand(0.74, 1.12);
+        verts.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
+      }
+      state.asteroids.push({
+        x: rand(r + 8, state.width - r - 8),
+        y: -r - 18,
+        r,
+        vx: rand(-28, 28),
+        vy: rand(86, 132) + state.level * 11,
+        rot: rand(0, Math.PI * 2),
+        spin: rand(-0.9, 0.9),
+        verts,
+      });
+    }
+
+    function spawnOrb() {
+      const r = 8;
+      state.orbs.push({
+        x: rand(r + 14, state.width - r - 14),
+        y: -r - 10,
+        r,
+        vy: rand(70, 105) + state.level * 7,
+        phase: rand(0, Math.PI * 2),
+      });
+    }
+
+    function burst(x, y, color, count) {
+      const total = reduceMotion ? Math.ceil(count / 3) : count;
+      for (let i = 0; i < total; i += 1) {
+        const angle = rand(0, Math.PI * 2);
+        const speed = rand(30, 180);
+        state.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: rand(0.35, 0.9),
+          maxLife: 0.9,
+          r: rand(1, 3),
+          color,
+        });
+      }
+    }
+
+    function hitAsteroid(asteroid) {
+      state.shields -= 1;
+      state.invuln = 1.15;
+      state.shake = reduceMotion ? 0 : 12;
+      burst(asteroid.x, asteroid.y, '#fb923c', 22);
+      if (state.shields <= 0) {
+        state.shields = 0;
+        endGame();
+      }
+    }
+
+    function update(dt) {
+      for (const star of state.stars) {
+        star.y += star.speed * dt * (state.mode === 'running' ? 1 : 0.32);
+        if (star.y > state.height + 2) {
+          star.y = -2;
+          star.x = rand(0, state.width);
+        }
+      }
+
+      if (state.mode !== 'running') return;
+
+      state.elapsed += dt;
+      state.level = 1 + Math.floor(state.elapsed / 18);
+      state.score += dt * (10 + (state.level - 1) * 3);
+      if (state.invuln > 0) state.invuln = Math.max(0, state.invuln - dt);
+      if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 40);
+
+      if (held.has('left')) state.targetX -= 520 * dt;
+      if (held.has('right')) state.targetX += 520 * dt;
+      state.targetX = clamp(state.targetX, state.playerR, state.width - state.playerR);
+      state.playerX += (state.targetX - state.playerX) * Math.min(1, dt * 12);
+
+      state.spawnTimer -= dt;
+      if (state.spawnTimer <= 0) {
+        spawnAsteroid();
+        const base = Math.max(0.24, 0.94 - (state.level - 1) * 0.07);
+        state.spawnTimer = base * rand(0.76, 1.24);
+      }
+
+      state.orbTimer -= dt;
+      if (state.orbTimer <= 0) {
+        spawnOrb();
+        state.orbTimer = rand(2.2, 4.2);
+      }
+
+      for (let i = state.asteroids.length - 1; i >= 0; i -= 1) {
+        const asteroid = state.asteroids[i];
+        asteroid.y += asteroid.vy * dt;
+        asteroid.x += asteroid.vx * dt;
+        asteroid.rot += asteroid.spin * dt;
+        if (asteroid.x < asteroid.r || asteroid.x > state.width - asteroid.r) {
+          asteroid.vx *= -1;
+          asteroid.x = clamp(asteroid.x, asteroid.r, state.width - asteroid.r);
+        }
+        if (asteroid.y - asteroid.r > state.height) {
+          state.asteroids.splice(i, 1);
+          continue;
+        }
+        const dx = asteroid.x - state.playerX;
+        const dy = asteroid.y - state.playerY;
+        const radius = state.playerR + asteroid.r * 0.78;
+        if (state.invuln <= 0 && dx * dx + dy * dy < radius * radius) {
+          state.asteroids.splice(i, 1);
+          hitAsteroid(asteroid);
+          if (state.mode !== 'running') return;
+        }
+      }
+
+      for (let i = state.orbs.length - 1; i >= 0; i -= 1) {
+        const orb = state.orbs[i];
+        orb.y += orb.vy * dt;
+        orb.phase += dt * 3.2;
+        if (orb.y - orb.r > state.height) {
+          state.orbs.splice(i, 1);
+          continue;
+        }
+        const dx = orb.x - state.playerX;
+        const dy = orb.y - state.playerY;
+        const radius = state.playerR + orb.r;
+        if (dx * dx + dy * dy < radius * radius) {
+          state.orbs.splice(i, 1);
+          state.score += 25;
+          state.orbStreak += 1;
+          if (state.orbStreak % 5 === 0 && state.shields < MAX_SHIELDS) {
+            state.shields += 1;
+            burst(orb.x, orb.y, '#34d399', 18);
+          } else {
+            burst(orb.x, orb.y, '#67e8f9', 14);
+          }
+        }
+      }
+
+      for (let i = state.particles.length - 1; i >= 0; i -= 1) {
+        const particle = state.particles[i];
+        particle.life -= dt;
+        if (particle.life <= 0) {
+          state.particles.splice(i, 1);
+          continue;
+        }
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.vx *= Math.pow(0.18, dt);
+        particle.vy *= Math.pow(0.18, dt);
+      }
+    }
+
+    function drawStars() {
+      for (const star of state.stars) {
+        ctx.globalAlpha = 0.22 + star.z * 0.68;
+        ctx.fillStyle = star.color;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.r * (0.7 + star.z * 0.6), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawAsteroids() {
+      for (const asteroid of state.asteroids) {
+        ctx.save();
+        ctx.translate(asteroid.x, asteroid.y);
+        ctx.rotate(asteroid.rot);
+        ctx.beginPath();
+        for (let i = 0; i < asteroid.verts.length; i += 1) {
+          const x = asteroid.verts[i][0] * asteroid.r;
+          const y = asteroid.verts[i][1] * asteroid.r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        const gradient = ctx.createLinearGradient(-asteroid.r, -asteroid.r, asteroid.r, asteroid.r);
+        gradient.addColorStop(0, '#64748b');
+        gradient.addColorStop(1, '#1e293b');
+        ctx.fillStyle = gradient;
+        ctx.shadowColor = 'rgba(148, 163, 184, 0.35)';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(-asteroid.r * 0.2, -asteroid.r * 0.15, asteroid.r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.38)';
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawOrbs() {
+      for (const orb of state.orbs) {
+        const pulse = 0.5 + Math.sin(orb.phase) * 0.5;
+        ctx.save();
+        ctx.translate(orb.x, orb.y);
+        ctx.shadowColor = '#22d3ee';
+        ctx.shadowBlur = 16 + pulse * 12;
+        ctx.fillStyle = '#67e8f9';
+        ctx.beginPath();
+        ctx.arc(0, 0, orb.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(224, 242, 254, 0.9)';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, orb.r + 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.28)';
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawParticles() {
+      for (const particle of state.particles) {
+        const alpha = Math.max(0, particle.life / particle.maxLife);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.r * alpha, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPlayer() {
+      const now = performance.now();
+      const bob = reduceMotion ? 0 : Math.sin(now / 620) * 1.8;
+      const y = state.playerY + bob;
+      const blink = state.invuln > 0 && Math.floor(state.invuln * 12) % 2 === 0;
+      if (!blink) {
+        ctx.save();
+        ctx.translate(state.playerX, y);
+
+        const flame = 10 + Math.sin(now / 70) * 3;
+        const flameGradient = ctx.createLinearGradient(0, 10, 0, 12 + flame);
+        flameGradient.addColorStop(0, 'rgba(125, 211, 252, 0.95)');
+        flameGradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.beginPath();
+        ctx.moveTo(-7, 10);
+        ctx.lineTo(0, 12 + flame);
+        ctx.lineTo(7, 10);
+        ctx.closePath();
+        ctx.fillStyle = flameGradient;
+        ctx.fill();
+
+        const shipGradient = ctx.createLinearGradient(0, -20, 0, 18);
+        shipGradient.addColorStop(0, '#e0f2fe');
+        shipGradient.addColorStop(0.5, '#38bdf8');
+        shipGradient.addColorStop(1, '#2563eb');
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.moveTo(0, -20);
+        ctx.lineTo(14, 14);
+        ctx.lineTo(0, 8);
+        ctx.lineTo(-14, 14);
+        ctx.closePath();
+        ctx.fillStyle = shipGradient;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(224, 242, 254, 0.85)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.ellipse(0, -3, 4, 7, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(8, 47, 73, 0.85)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (state.invuln > 0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(125, 211, 252, ' + (0.35 + Math.sin(now / 90) * 0.2) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(state.playerX, y, state.playerR + 12 + Math.sin(now / 120) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function render() {
+      if (!state.width || !state.height) return;
+      ctx.clearRect(0, 0, state.width, state.height);
+
+      const glow = ctx.createRadialGradient(
+        state.width * 0.5,
+        state.height * 0.16,
+        0,
+        state.width * 0.5,
+        state.height * 0.52,
+        Math.max(state.width, state.height) * 0.82,
+      );
+      glow.addColorStop(0, 'rgba(30, 41, 89, 0.52)');
+      glow.addColorStop(0.48, 'rgba(10, 15, 36, 0.34)');
+      glow.addColorStop(1, 'rgba(5, 6, 15, 0.08)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, state.width, state.height);
+
+      drawStars();
+
+      const shakeX = state.shake ? rand(-state.shake, state.shake) : 0;
+      const shakeY = state.shake ? rand(-state.shake, state.shake) : 0;
+      ctx.save();
+      ctx.translate(shakeX, shakeY);
+      drawOrbs();
+      drawAsteroids();
+      drawParticles();
+      drawPlayer();
+      ctx.restore();
+
+      syncHud();
+    }
+
+    function frame(now) {
+      const dt = state.lastTime ? Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000)) : 0;
+      state.lastTime = now;
+      update(dt);
+      render();
+      requestAnimationFrame(frame);
+    }
+
+    function pointerX(event) {
+      const rect = canvas.getBoundingClientRect();
+      return clamp(event.clientX - rect.left, state.playerR, state.width - state.playerR);
+    }
+
+    ui.primary.addEventListener('click', () => {
+      if (state.mode === 'paused') resumeGame();
+      else startGame();
+    });
+
+    ui.pause.addEventListener('click', togglePause);
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (state.mode !== 'running') return;
+      if (canvas.setPointerCapture) {
+        try { canvas.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+      }
+      state.targetX = pointerX(event);
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (state.mode !== 'running') return;
+      if (event.pointerType === 'mouse' && event.buttons === 0) return;
+      state.targetX = pointerX(event);
+    });
+
+    window.addEventListener('keydown', (event) => {
+      const code = event.code;
+      const target = event.target;
+      const onControl = target && target.closest && target.closest('button, a, input, select, textarea');
+      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Space', 'Enter', 'KeyP', 'Escape'].includes(code)) {
+        event.preventDefault();
+      }
+      if (code === 'ArrowLeft' || code === 'KeyA') held.add('left');
+      if (code === 'ArrowRight' || code === 'KeyD') held.add('right');
+      if ((code === 'Space' || code === 'Enter') && !onControl) {
+        if (state.mode === 'ready' || state.mode === 'over') startGame();
+        else if (state.mode === 'paused') resumeGame();
+      }
+      if (code === 'KeyP' || code === 'Escape') togglePause();
+    });
+
+    window.addEventListener('keyup', (event) => {
+      if (event.code === 'ArrowLeft' || event.code === 'KeyA') held.delete('left');
+      if (event.code === 'ArrowRight' || event.code === 'KeyD') held.delete('right');
+    });
+
+    window.addEventListener('blur', () => {
+      held.clear();
+      if (state.mode === 'running') pauseGame();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state.mode === 'running') pauseGame();
+    });
+
+    window.addEventListener('resize', resize);
+    if ('ResizeObserver' in window) new ResizeObserver(resize).observe(canvas);
+
+    resize();
+    resetGame();
+    state.mode = 'ready';
+    showOverlay('ready');
+    syncHud();
+    if (new URLSearchParams(window.location.search).has('debug')) {
+      window.__orbitDash = { state, startGame, pauseGame, resumeGame, endGame };
+    }
+    requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>

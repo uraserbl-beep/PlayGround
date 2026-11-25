@@ -65,6 +65,20 @@ function createServer() {
       return;
     }
 
+    if ((pathname === '/game' || pathname === '/game.html') && (req.method === 'GET' || req.method === 'HEAD')) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      if (req.method === 'HEAD') return res.end();
+      fs.createReadStream(path.join(__dirname, 'game.html')).pipe(res);
+      return;
+    }
+
+    if (pathname === '/news-intent.js' && (req.method === 'GET' || req.method === 'HEAD')) {
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
+      if (req.method === 'HEAD') return res.end();
+      fs.createReadStream(path.join(__dirname, 'news-intent.js')).pipe(res);
+      return;
+    }
+
     if (pathname === '/assets/cosmic-black-hole-space-live-wallpaper.mp4' && (req.method === 'GET' || req.method === 'HEAD')) {
       const filePath = path.join(__dirname, 'assets', 'cosmic-black-hole-space-live-wallpaper.mp4');
       fs.stat(filePath, (err, stat) => {

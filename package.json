@@ -4,7 +4,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/search.test.js test/server.test.js test/news-intent.test.js test/chat.test.js"
+    "test": "node --test test/search.test.js test/server.test.js test/news-intent.test.js test/chat.test.js test/game.test.js"
   },
   "engines": {
     "node": "26.x"

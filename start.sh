@@ -26,7 +26,7 @@ run_timed() {
 
 run_timed "install dependencies" bash -c 'if [[ -f package.json ]] && [[ -f package-lock.json ]]; then npm ci; elif [[ -f package.json ]]; then npm install --no-audit --no-fund; fi'
 
-run_timed "build static app" bash -c 'mkdir -p dist; cp -f index.html dist/index.html'
+run_timed "build static app" bash -c 'mkdir -p dist; cp -f index.html dist/index.html; cp -f game.html dist/game.html'
 
 mkdir -p "$BUILT_DIR"
 export PROJECT_DIR OPENCODE_WEB_DIR BUILT_DIR

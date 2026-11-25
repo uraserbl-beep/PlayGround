@@ -69,6 +69,36 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
   assert.equal(unknownRoute.status, 404);
 });
 
+test('serves the Orbit Dash game page and its alias', async (t) => {
+  const server = createServer();
+  server.listen(0, '127.0.0.1');
+  await new Promise((resolve, reject) => {
+    server.once('listening', resolve);
+    server.once('error', reject);
+  });
+  t.after(() => new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  }));
+
+  const base = `http://127.0.0.1:${server.address().port}`;
+  for (const route of ['/game', '/game.html']) {
+    const response = await fetch(base + route);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /text\/html/);
+    const body = await response.text();
+    assert.match(body, /Orbit Dash/);
+    assert.match(body, /<canvas id="game"/);
+  }
+
+  const script = await fetch(`${base}/news-intent.js`);
+  assert.equal(script.status, 200);
+  assert.match(script.headers.get('content-type'), /javascript/);
+  assert.match(await script.text(), /FoVerseNewsIntent/);
+
+  const missing = await fetch(`${base}/game/missing`);
+  assert.equal(missing.status, 404);
+});
+
 test('routes /api/chat through the local HTTP server', async (t) => {
   const names = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'CUSTOM_LLM_API_KEY', 'CUSTOM_LLM_BASE_URL'];
   const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));

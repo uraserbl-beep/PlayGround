@@ -37,3 +37,7 @@ The credentials stay on the server and are never sent to the browser. The endpoi
 If a provider fails, times out, or is rate-limited, the next configured provider is tried. If none are configured the endpoint returns `503` with `CHAT_NOT_CONFIGURED`; if all configured providers fail it returns `502` with `CHAT_PROVIDERS_UNAVAILABLE`. Successful responses include the answering `provider` and any Wikipedia `sources`. Set `WIKIPEDIA_LANG` to change the Wikipedia language (default `tr`). Copy `.env.example` to `.env` for local development and keep real keys out of version control.
 
 The local server routes both `/api/search` and `/api/chat`, so the same UI and API origin applies. Run `npm test` to validate search, chat, provider fallback, Wikipedia context, and local HTTP routing.
+
+## Orbit Dash
+
+`game.html` is a self-contained canvas arcade game with keyboard, mouse, and touch controls. It is available at `/game` or `/game.html` and linked from the app sidebar. The local server serves it directly; the static build copies it into `dist/`. No external libraries or assets are required.

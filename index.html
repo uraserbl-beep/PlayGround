@@ -98,7 +98,7 @@ syncViewportHeight();window.addEventListener('resize',syncViewportHeight);window
 const $=id=>document.getElementById(id); const memory={};
 const store={get(k,f=null){try{const v=localStorage.getItem(k);return v===null?f:v}catch(e){return memory[k]??f}},set(k,v){try{localStorage.setItem(k,v);return true}catch(e){memory[k]=v;return false}}};
 
-let mode='Smart',attachedText='',attachedName='',busy=false,abort=null,chatHistory=[],lastSearchContext=null,lastShownNews=[];
+let mode='Smart',attachedText='',attachedName='',busy=false,abort=null,chatHistory=[],lastSearchContext=null,lastShownNews=[],conversationMemory=window.FoVerseNewsIntent?.createConversationMemory?.()||{turns:[],entities:[],topics:[],lists:[]};
 function applyAppearance(){
   const font=store.get('foverseFont','modern'),bubble=store.get('foverseBubble','rounded'),theme=store.get('foverseTheme','slate'),size=store.get('foverseSize','15');
   document.body.dataset.font=font;document.body.dataset.bubble=bubble;document.body.dataset.theme=theme;

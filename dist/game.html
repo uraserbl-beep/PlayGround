@@ -62,6 +62,20 @@
     }
     .back:hover { border-color: rgba(56, 189, 248, 0.6); background: rgba(15, 23, 42, 0.85); transform: translateY(-1px); }
     .back:focus-visible, button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .sound {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.55);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1;
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+    }
+    .sound:hover { border-color: rgba(56, 189, 248, 0.6); background: rgba(15, 23, 42, 0.85); transform: translateY(-1px); }
+    .sound[aria-pressed="true"] { color: var(--muted); }
     .brand {
       font-size: 13px;
       font-weight: 800;
@@ -237,6 +251,25 @@
     }
     .secondary:hover { border-color: rgba(148, 163, 184, 0.6); transform: translateY(-1px); }
     .secondary[hidden] { display: none; }
+    .dash-btn {
+      position: absolute;
+      z-index: 6;
+      right: max(18px, env(safe-area-inset-right));
+      bottom: max(64px, calc(env(safe-area-inset-bottom) + 64px));
+      width: 58px;
+      height: 58px;
+      border: 1px solid rgba(125, 211, 252, 0.5);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, rgba(125, 211, 252, 0.32), rgba(15, 23, 42, 0.9));
+      color: #e0f2fe;
+      font-size: 22px;
+      font-weight: 800;
+      box-shadow: 0 12px 32px rgba(14, 165, 233, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(10px);
+      transition: transform 0.16s ease, opacity 0.16s ease, border-color 0.16s ease;
+    }
+    .dash-btn:hover:not(:disabled) { border-color: rgba(125, 211, 252, 0.9); transform: translateY(-1px) scale(1.03); }
+    .dash-btn:disabled { cursor: default; opacity: 0.42; }
     .touch-hint {
       position: absolute;
       z-index: 4;
@@ -252,6 +285,7 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
       pointer-events: none;
+      white-space: nowrap;
     }
     @media (hover: hover) and (pointer: fine) {
       .touch-hint { display: none; }
@@ -272,11 +306,14 @@
   <header class="topbar">
     <a class="back" href="/" aria-label="Back to FoVerse AI">← Chat</a>
     <div class="brand">Orbit <span>Dash</span></div>
-    <a class="back" href="/" aria-label="Back to FoVerse AI">FoVerse AI</a>
+    <div class="top-actions">
+      <button class="sound" id="soundBtn" type="button" aria-label="Mute sound" aria-pressed="false">🔊</button>
+      <a class="back" href="/" aria-label="Back to FoVerse AI">FoVerse AI</a>
+    </div>
   </header>
 
   <main class="stage">
-    <canvas id="game" aria-label="Orbit Dash play area. Use arrow keys or drag to steer."></canvas>
+    <canvas id="game" aria-label="Orbit Dash play area. Use arrow keys or drag to steer and Space or Shift to dash."></canvas>
 
     <div class="hud" aria-label="Game statistics">
       <div class="stat"><span>Score</span><b id="score">0000</b></div>
@@ -294,6 +331,7 @@
         <div class="keys" aria-label="Controls">
           <span>← → / A D</span>
           <span>Drag to steer</span>
+          <span>Space / Shift to dash</span>
           <span>P / Esc to pause</span>
         </div>
         <div class="actions">
@@ -303,7 +341,8 @@
       </section>
     </div>
 
-    <div class="touch-hint">Drag to steer</div>
+    <button class="dash-btn" id="dashBtn" type="button" aria-label="Dash" disabled>⚡</button>
+    <div class="touch-hint">Drag to steer · tap ⚡ to dash</div>
   </main>
 
   <script>
@@ -311,7 +350,11 @@
     'use strict';
 
     const BEST_KEY = 'foverse-orbit-best';
+    const MUTED_KEY = 'foverse-orbit-muted';
     const MAX_SHIELDS = 3;
+    const DASH_COOLDOWN = 2.4;
+    const DASH_DURATION = 0.22;
+    const DASH_SPEED = 900;
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const ui = {
@@ -320,6 +363,8 @@
       shields: document.getElementById('shields'),
       level: document.getElementById('level'),
       pause: document.getElementById('pauseBtn'),
+      dash: document.getElementById('dashBtn'),
+      sound: document.getElementById('soundBtn'),
       overlay: document.getElementById('overlay'),
       title: document.getElementById('overlayTitle'),
       text: document.getElementById('overlayText'),
@@ -348,6 +393,11 @@
       orbStreak: 0,
       invuln: 0,
       shake: 0,
+      dashCooldown: 0,
+      dashTime: 0,
+      dashDir: 1,
+      muted: readMuted(),
+      audio: null,
       stars: [],
       asteroids: [],
       orbs: [],
@@ -356,6 +406,9 @@
       hudScore: -1,
       hudShields: -1,
       hudLevel: -1,
+      hudBest: -1,
+      hudDash: '',
+      hudDashReady: null,
     };
 
     function clamp(value, min, max) {
@@ -381,6 +434,64 @@
       } catch (_) {
         /* Private mode or blocked storage: the run still works. */
       }
+    }
+
+    function readMuted() {
+      try {
+        return localStorage.getItem(MUTED_KEY) === '1';
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function writeMuted() {
+      try {
+        localStorage.setItem(MUTED_KEY, state.muted ? '1' : '0');
+      } catch (_) {
+        /* Optional preference. */
+      }
+    }
+
+    function ensureAudio() {
+      if (state.muted) return;
+      try {
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtor) return;
+        if (!state.audio) state.audio = new AudioCtor();
+        if (state.audio.state === 'suspended') state.audio.resume();
+      } catch (_) {
+        state.audio = null;
+      }
+    }
+
+    function tone(frequency, duration, type, volume, slideTo) {
+      if (state.muted) return;
+      ensureAudio();
+      const audio = state.audio;
+      if (!audio) return;
+      try {
+        const now = audio.currentTime;
+        const oscillator = audio.createOscillator();
+        const gain = audio.createGain();
+        oscillator.type = type || 'sine';
+        oscillator.frequency.setValueAtTime(frequency, now);
+        oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo || frequency), now + duration);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(volume || 0.04, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        oscillator.connect(gain);
+        gain.connect(audio.destination);
+        oscillator.start(now);
+        oscillator.stop(now + duration + 0.03);
+      } catch (_) {
+        /* Audio is optional. */
+      }
+    }
+
+    function updateSoundButton() {
+      ui.sound.textContent = state.muted ? '🔇' : '🔊';
+      ui.sound.setAttribute('aria-pressed', String(state.muted));
+      ui.sound.setAttribute('aria-label', state.muted ? 'Unmute sound' : 'Mute sound');
     }
 
     function resize() {
@@ -428,6 +539,9 @@
       state.orbStreak = 0;
       state.invuln = 0;
       state.shake = 0;
+      state.dashCooldown = 0;
+      state.dashTime = 0;
+      state.dashDir = 1;
       state.asteroids = [];
       state.orbs = [];
       state.particles = [];
@@ -437,6 +551,9 @@
       state.hudScore = -1;
       state.hudShields = -1;
       state.hudLevel = -1;
+      state.hudBest = -1;
+      state.hudDash = '';
+      state.hudDashReady = null;
       syncHud();
     }
 
@@ -445,6 +562,8 @@
       state.mode = 'running';
       state.lastTime = performance.now();
       hideOverlay();
+      ensureAudio();
+      tone(220, 0.16, 'triangle', 0.045, 440);
       syncHud();
     }
 
@@ -460,6 +579,8 @@
       state.mode = 'running';
       state.lastTime = performance.now();
       hideOverlay();
+      ensureAudio();
+      tone(440, 0.1, 'sine', 0.03, 660);
       syncHud();
     }
 
@@ -476,6 +597,7 @@
         writeBest();
       }
       burst(state.playerX, state.playerY, '#f97316', 34);
+      tone(220, 0.5, 'sawtooth', 0.05, 55);
       showOverlay('over');
       syncHud();
     }
@@ -512,11 +634,17 @@
       }
       ui.overlay.classList.add('show');
       ui.overlay.setAttribute('aria-hidden', 'false');
+      if (kind !== 'ready') {
+        try { ui.primary.focus({ preventScroll: true }); } catch (_) { /* focus is optional */ }
+      }
     }
 
     function hideOverlay() {
       ui.overlay.classList.remove('show');
       ui.overlay.setAttribute('aria-hidden', 'true');
+      if (document.activeElement && ui.overlay.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
     }
 
     function syncHud() {
@@ -534,11 +662,25 @@
         ui.level.textContent = String(state.level);
         state.hudLevel = state.level;
       }
-      ui.best.textContent = String(state.best).padStart(4, '0');
+      if (state.best !== state.hudBest) {
+        ui.best.textContent = String(state.best).padStart(4, '0');
+        state.hudBest = state.best;
+      }
       const canPause = state.mode === 'running' || state.mode === 'paused';
       ui.pause.disabled = !canPause;
       ui.pause.textContent = state.mode === 'paused' ? '▶' : '❚❚';
       ui.pause.setAttribute('aria-label', state.mode === 'paused' ? 'Resume' : 'Pause');
+      const dashReady = state.mode === 'running' && state.dashCooldown <= 0;
+      if (state.hudDashReady !== dashReady) {
+        ui.dash.disabled = !dashReady;
+        state.hudDashReady = dashReady;
+      }
+      const dashLabel = state.dashCooldown > 0 ? String(Math.ceil(state.dashCooldown)) : '⚡';
+      if (dashLabel !== state.hudDash) {
+        ui.dash.textContent = dashLabel;
+        ui.dash.setAttribute('aria-label', dashReady ? 'Dash' : 'Dash recharging: ' + Math.ceil(state.dashCooldown) + ' seconds');
+        state.hudDash = dashLabel;
+      }
     }
 
     function spawnAsteroid() {
@@ -591,11 +733,27 @@
       }
     }
 
+    function dash() {
+      if (state.mode !== 'running' || state.dashCooldown > 0) return;
+      let direction = 0;
+      if (held.has('left')) direction = -1;
+      else if (held.has('right')) direction = 1;
+      else direction = Math.sign(state.targetX - state.playerX) || state.dashDir || 1;
+      state.dashDir = direction;
+      state.dashTime = DASH_DURATION;
+      state.dashCooldown = DASH_COOLDOWN;
+      state.invuln = Math.max(state.invuln, 0.3);
+      state.targetX = clamp(state.playerX + direction * 190, state.playerR, state.width - state.playerR);
+      burst(state.playerX, state.playerY, '#7dd3fc', 16);
+      tone(320, 0.18, 'sawtooth', 0.04, 900);
+    }
+
     function hitAsteroid(asteroid) {
       state.shields -= 1;
       state.invuln = 1.15;
       state.shake = reduceMotion ? 0 : 12;
       burst(asteroid.x, asteroid.y, '#fb923c', 22);
+      tone(120, 0.24, 'sawtooth', 0.055, 60);
       if (state.shields <= 0) {
         state.shields = 0;
         endGame();
@@ -614,15 +772,38 @@
       if (state.mode !== 'running') return;
 
       state.elapsed += dt;
-      state.level = 1 + Math.floor(state.elapsed / 18);
+      const nextLevel = 1 + Math.floor(state.elapsed / 18);
+      if (nextLevel !== state.level) {
+        state.level = nextLevel;
+        tone(523, 0.16, 'triangle', 0.04, 784);
+      }
       state.score += dt * (10 + (state.level - 1) * 3);
       if (state.invuln > 0) state.invuln = Math.max(0, state.invuln - dt);
       if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 40);
+      if (state.dashCooldown > 0) state.dashCooldown = Math.max(0, state.dashCooldown - dt);
 
-      if (held.has('left')) state.targetX -= 520 * dt;
-      if (held.has('right')) state.targetX += 520 * dt;
-      state.targetX = clamp(state.targetX, state.playerR, state.width - state.playerR);
-      state.playerX += (state.targetX - state.playerX) * Math.min(1, dt * 12);
+      if (state.dashTime > 0) {
+        state.dashTime = Math.max(0, state.dashTime - dt);
+        state.playerX = clamp(state.playerX + state.dashDir * DASH_SPEED * dt, state.playerR, state.width - state.playerR);
+        state.targetX = state.playerX;
+        if (!reduceMotion) {
+          state.particles.push({
+            x: state.playerX - state.dashDir * 12,
+            y: state.playerY + rand(-9, 9),
+            vx: -state.dashDir * rand(30, 80),
+            vy: rand(-18, 18),
+            life: 0.24,
+            maxLife: 0.24,
+            r: rand(1, 2.6),
+            color: '#7dd3fc',
+          });
+        }
+      } else {
+        if (held.has('left')) state.targetX -= 520 * dt;
+        if (held.has('right')) state.targetX += 520 * dt;
+        state.targetX = clamp(state.targetX, state.playerR, state.width - state.playerR);
+        state.playerX += (state.targetX - state.playerX) * Math.min(1, dt * 12);
+      }
 
       state.spawnTimer -= dt;
       if (state.spawnTimer <= 0) {
@@ -678,8 +859,10 @@
           if (state.orbStreak % 5 === 0 && state.shields < MAX_SHIELDS) {
             state.shields += 1;
             burst(orb.x, orb.y, '#34d399', 18);
+            tone(660, 0.22, 'triangle', 0.045, 990);
           } else {
             burst(orb.x, orb.y, '#67e8f9', 14);
+            tone(880, 0.1, 'sine', 0.03, 1320);
           }
         }
       }
@@ -781,9 +964,24 @@
       const bob = reduceMotion ? 0 : Math.sin(now / 620) * 1.8;
       const y = state.playerY + bob;
       const blink = state.invuln > 0 && Math.floor(state.invuln * 12) % 2 === 0;
+      const dashing = state.dashTime > 0;
       if (!blink) {
         ctx.save();
         ctx.translate(state.playerX, y);
+
+        if (dashing) {
+          const trail = ctx.createLinearGradient(-state.dashDir * 70, 0, 0, 0);
+          trail.addColorStop(0, 'rgba(56, 189, 248, 0)');
+          trail.addColorStop(1, 'rgba(125, 211, 252, 0.55)');
+          ctx.strokeStyle = trail;
+          ctx.lineWidth = 8;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(-state.dashDir * 64, 0);
+          ctx.lineTo(0, 0);
+          ctx.stroke();
+          ctx.scale(1.16, 0.92);
+        }
 
         const flame = 10 + Math.sin(now / 70) * 3;
         const flameGradient = ctx.createLinearGradient(0, 10, 0, 12 + flame);
@@ -829,6 +1027,21 @@
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(state.playerX, y, state.playerR + 12 + Math.sin(now / 120) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (state.dashCooldown > 0 && state.mode === 'running') {
+        const progress = 1 - state.dashCooldown / DASH_COOLDOWN;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(125, 211, 252, 0.24)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(state.playerX, y, state.playerR + 18, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(125, 211, 252, 0.85)';
+        ctx.beginPath();
+        ctx.arc(state.playerX, y, state.playerR + 18, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
         ctx.stroke();
         ctx.restore();
       }
@@ -886,6 +1099,14 @@
     });
 
     ui.pause.addEventListener('click', togglePause);
+    ui.dash.addEventListener('click', dash);
+
+    ui.sound.addEventListener('click', () => {
+      state.muted = !state.muted;
+      writeMuted();
+      updateSoundButton();
+      if (!state.muted) tone(660, 0.08, 'sine', 0.03, 880);
+    });
 
     canvas.addEventListener('pointerdown', (event) => {
       if (state.mode !== 'running') return;
@@ -905,12 +1126,16 @@
       const code = event.code;
       const target = event.target;
       const onControl = target && target.closest && target.closest('button, a, input, select, textarea');
-      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Space', 'Enter', 'KeyP', 'Escape'].includes(code)) {
-        event.preventDefault();
-      }
+      const navigationKey = ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'KeyP', 'Escape'].includes(code);
+      const actionKey = code === 'Space' || code === 'Enter';
+      if (navigationKey || (actionKey && !onControl)) event.preventDefault();
       if (code === 'ArrowLeft' || code === 'KeyA') held.add('left');
       if (code === 'ArrowRight' || code === 'KeyD') held.add('right');
-      if ((code === 'Space' || code === 'Enter') && !onControl) {
+      if ((code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') && !onControl && state.mode === 'running') {
+        dash();
+        return;
+      }
+      if (actionKey && !onControl) {
         if (state.mode === 'ready' || state.mode === 'over') startGame();
         else if (state.mode === 'paused') resumeGame();
       }
@@ -939,8 +1164,9 @@
     state.mode = 'ready';
     showOverlay('ready');
     syncHud();
+    updateSoundButton();
     if (new URLSearchParams(window.location.search).has('debug')) {
-      window.__orbitDash = { state, startGame, pauseGame, resumeGame, endGame };
+      window.__orbitDash = { state, startGame, pauseGame, resumeGame, endGame, dash };
     }
     requestAnimationFrame(frame);
   })();

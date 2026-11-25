@@ -26,3 +26,9 @@ test('inline game script parses without a browser', () => {
   assert.ok(match, 'expected an inline game script');
   assert.doesNotThrow(() => new Function(match[1]));
 });
+
+test('game keeps the ship clear of touch controls and can focus dialogs immediately', () => {
+  assert.match(html, /function playerBottomInset/);
+  assert.ok(html.includes('visibility 0s linear 0s'), 'overlay should become visible before focus moves');
+  assert.match(html, /requestAnimationFrame\(\(\) => \{\s*if \(!ui\.overlay\.classList\.contains\('show'\)\) return;/);
+});

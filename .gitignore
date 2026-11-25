@@ -5,6 +5,10 @@ screenshots/
 
 *.pid
 
+.env
+.env.*
+!.env.example
+
 .agents/
 
 .agentsweb/

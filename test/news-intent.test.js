@@ -163,6 +163,47 @@ test('conversation memory keeps prior-list subjects available for natural follow
   assert.match(reference.query, /konu: Minecraft Dungeons/);
 });
 
+test('gaming-news follow-ups inherit the active topic and retain previously shown headlines', () => {
+  const shown = [
+    { title: 'Minecraft Dungeons yeni içerik alıyor', url: 'https://example.com/dungeons', snippet: 'Yeni içerik duyuruldu.' },
+    { title: 'Steam oyun güncellemesi yayımlandı', url: 'https://example.com/steam', snippet: 'Güncelleme notları paylaşıldı.' },
+  ];
+  let memory = intent.rememberTurn(intent.createConversationMemory(), 'Oyun gündemindr ne var?', 'Oyun gündeminden iki başlık:', shown);
+
+  assert.equal(intent.resolveTopicFollowup('Tamam ne varmış gündemde?', memory), 'Oyun gündemi bugün ne var?');
+  assert.equal(intent.resolveTopicFollowup('Peki ya detayları?', memory), 'Oyun gündemi bugün ne var?');
+  assert.equal(intent.resolveTopicFollowup('Devam et', memory), 'Oyun gündemi bugün ne var?');
+
+  memory = intent.rememberTurn(memory, 'Tamam ne varmış gündemde?', 'Canlı kaynaklar yanıt vermedi.', []);
+  assert.equal(memory.activeTopic, 'Oyun gündemi');
+  assert.match(intent.memoryContext(memory), /Minecraft Dungeons yeni içerik alıyor/);
+  assert.match(intent.memoryContext(memory), /Steam oyun güncellemesi yayımlandı/);
+});
+
+test('gaming live-search failures offer clearly labeled official source fallbacks', () => {
+  const sources = intent.fallbackSources('Oyun gündemi bugün ne var?');
+  assert.ok(sources.length >= 3);
+  assert.ok(sources.every((source) => /^https:\/\//.test(source.url)));
+  assert.deepEqual(intent.fallbackSources('Siyaset gündemi'), []);
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = html.indexOf('function localSearchAnswer(items,reason,query){');
+  const end = html.indexOf('async function send(){', start);
+  assert.ok(start >= 0 && end > start);
+  const context = {
+    window: { FoVerseNewsIntent: intent },
+    esc: (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
+  };
+  vm.runInNewContext(html.slice(start, end) + '\nthis.localSearchAnswer=localSearchAnswer;', context);
+  const answer = context.localSearchAnswer(null, 'Arama servisi erişilemiyor', 'Oyun gündemi bugün ne var?');
+  assert.match(answer, /güncel başlıkları doğrulayamadım/i);
+  assert.match(answer, /son dakika haberleri değil/i);
+  assert.match(answer, /Steam — Haberler/);
+  assert.match(answer, /PlayStation Blog/);
+  assert.match(answer, /Xbox Wire/);
+  assert.match(answer, /Arama servisi erişilemiyor/);
+});
+
 test('currency, time, technology and date prompts are identifiable intents', () => {
   assert.equal(intent.classifyIntent('Dolar kuru bugün kaç?'), 'CURRENCY');
   assert.equal(intent.classifyIntent('What time is it?'), 'TIME');

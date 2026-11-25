@@ -124,6 +124,32 @@ test('tries configured providers in order and returns a safe gateway error when 
   });
 });
 
+test('passes a bounded timeout to each provider attempt', async () => {
+  await withoutCredentials(async () => {
+    process.env.GROQ_API_KEY = 'groq-test';
+    const groq = require('../api/providers/groq');
+    const originalComplete = groq.complete;
+    let received;
+    groq.complete = async (messages, env, timeoutMs) => {
+      received = { messages, env, timeoutMs };
+      return 'Bounded answer.';
+    };
+    const originalFetch = global.fetch;
+    global.fetch = async () => { throw new Error('fetch must not run'); };
+    try {
+      const res = await invoke({ message: 'Hello!' });
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.payload.answer, 'Bounded answer.');
+      assert.equal(received.env, process.env);
+      assert.equal(typeof received.timeoutMs, 'number');
+      assert.ok(received.timeoutMs > 0 && received.timeoutMs <= 6000);
+    } finally {
+      groq.complete = originalComplete;
+      global.fetch = originalFetch;
+    }
+  });
+});
+
 test('does not request Wikipedia for ordinary conversational messages', async () => {
   await withoutCredentials(async () => {
     process.env.GROQ_API_KEY = 'groq-test';

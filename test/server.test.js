@@ -68,3 +68,30 @@ test('serves the search handler over HTTP instead of returning a route 404', asy
   const unknownRoute = await fetch(`${origin}/api/unknown`);
   assert.equal(unknownRoute.status, 404);
 });
+
+test('routes /api/chat through the local HTTP server', async (t) => {
+  const names = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'CUSTOM_LLM_API_KEY', 'CUSTOM_LLM_BASE_URL'];
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  for (const name of names) delete process.env[name];
+  const server = createServer();
+  server.listen(0, '127.0.0.1');
+  await new Promise((resolve, reject) => {
+    server.once('listening', resolve);
+    server.once('error', reject);
+  });
+  t.after(() => new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+  }));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'Hello' }),
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).code, 'CHAT_NOT_CONFIGURED');
+});

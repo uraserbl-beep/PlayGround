@@ -61,7 +61,30 @@
     memory.entities = Array.isArray(memory.entities) ? memory.entities.slice(-30) : [];
     memory.topics = Array.isArray(memory.topics) ? memory.topics.slice(-20) : [];
     memory.lists = Array.isArray(memory.lists) ? memory.lists.slice(-10) : [];
+    memory.activeTopic = typeof memory.activeTopic === 'string' ? memory.activeTopic : '';
+    if (!memory.activeTopic) memory.activeTopic = [...memory.turns].reverse().find((turn) => turn.topic && turn.topic !== 'Güncel gündem')?.topic || '';
     return memory;
+  }
+
+  function resolveTopicFollowup(query, memory) {
+    const normalized = normalize(query).replace(/[?!.]+$/g, '').trim();
+    const state = createConversationMemory(memory);
+    if (!state.activeTopic || topicFor(query)?.label && topicFor(query).label !== 'Güncel gündem') return String(query || '');
+    const isFollowup = /^(?:(?:tamam|peki|evet|ya)\s+)*(?:(?:ne var(?:mis)?|neler var|detaylari?|ayrintilari?|devam et|suruyor mu|baska ne var)(?:\s+(?:da|de|gundemde|bugun))?|gundem(?:de)?(?:\s+ne var(?:mis)?)?|devam)$/i.test(normalized)
+      || /^(?:(?:peki|ya|tamam)\s+)*(?:ya\s+)?(?:bunlarin\s+)?(?:detaylari?|ayrintilari?)$/i.test(normalized);
+    if (!isFollowup) return String(query || '');
+    const topic = topics.find((item) => item.label === state.activeTopic);
+    return topic ? `${topic.label} bugün ne var?` : String(query || '');
+  }
+
+  function fallbackSources(query) {
+    if (topicFor(query)?.label !== 'Oyun gündemi') return [];
+    return [
+      { title: 'Steam — Haberler', url: 'https://store.steampowered.com/news/', snippet: 'Steam platformu ve oyun geliştiricilerinin duyurularını takip edin.' },
+      { title: 'PlayStation Blog', url: 'https://blog.playstation.com/', snippet: 'PlayStation oyunları, güncellemeleri ve etkinliklerine ilişkin resmi duyurular.' },
+      { title: 'Xbox Wire', url: 'https://news.xbox.com/', snippet: 'Xbox oyunları, Game Pass ve platform güncellemelerine ilişkin resmi haberler.' },
+      { title: 'Nintendo — Haberler', url: 'https://www.nintendo.com/us/whatsnew/', snippet: 'Nintendo oyunları ve platformlarına ilişkin resmi haberler.' },
+    ];
   }
 
   function rememberTurn(memory, user, assistant, items) {
@@ -77,6 +100,7 @@
     state.turns = state.turns.slice(-20);
     state.entities = [...state.entities, ...entities].slice(-30);
     if (turn.topic) state.topics = [...state.topics, turn.topic].slice(-20);
+    if (turn.topic && turn.topic !== 'Güncel gündem') state.activeTopic = turn.topic;
     if (safeItems.length) {
       state.lists.push({ query: turn.user, items: safeItems, at: turn.at });
       state.lists = state.lists.slice(-10);
@@ -184,7 +208,7 @@
     return `Şu anda ${topic.toLocaleLowerCase('tr-TR')} için canlı haber sonuçlarını alamadım. Kaynaklara erişemediğim için güncel gelişmeleri doğrulanmış bilgi olarak aktaramıyorum.`;
   }
 
-  const api = { classifyIntent, extractEntities, createConversationMemory, rememberTurn, resolveReference, memoryContext, isNewsIntent, isNewsDetailRequest, detailSearchQuery, detailSearchQueries, detailSubject, topicFor, searchQuery, failureMessage };
+  const api = { classifyIntent, extractEntities, createConversationMemory, rememberTurn, resolveReference, resolveTopicFollowup, fallbackSources, memoryContext, isNewsIntent, isNewsDetailRequest, detailSearchQuery, detailSearchQueries, detailSubject, topicFor, searchQuery, failureMessage };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.FoVerseNewsIntent = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

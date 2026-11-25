@@ -46,6 +46,16 @@ test('gaming and recipe intents have category-specific behavior', () => {
   assert.doesNotMatch(html.slice(html.indexOf("if(/(tarif|recipe"), html.indexOf("if(topicOf(t)==='gaming'")), /Biraz daha ayrıntı verir misin/);
 });
 
+test('topic matching tolerates common aliases, one-letter typos, and named game follow-ups', () => {
+  assert.equal(intent.topicFor('Ekonomii gündemi').label, 'Ekonomi gündemi');
+  assert.equal(intent.topicFor('teknolji haberleri').label, 'Teknoloji gündemi');
+  assert.equal(intent.topicFor('Minecraft Dungeons son güncelleme').label, 'Oyun gündemi');
+  assert.match(intent.searchQuery('Minecraft Dungeons son güncelleme'), /Minecraft Dungeons güncel haberler/i);
+  assert.equal(intent.isNewsContinuation('Tamam ne varmış gündemde?'), true);
+  assert.equal(intent.isNewsContinuation('Peki başka ne var?'), true);
+  assert.equal(intent.isNewsContinuation('Bana bir şiir yaz'), false);
+});
+
 test('topic failure copy is honest and never uses generic clarification prompts', () => {
   for (const prompt of exactPrompts) {
     const message = intent.failureMessage(prompt);
@@ -94,6 +104,7 @@ test('numbered follow-up resolves the previous item title and searches it specif
   vm.runInNewContext(html.slice(start, end) + '\nthis.resolveNumberedNewsFollowup=resolveNumberedNewsFollowup;', context);
   const resolved = context.resolveNumberedNewsFollowup('8. Haber hakkında biraz daha detay verir misin?');
   assert.equal(resolved, 'Haber detayı Türkiye NATO ilişkilerinde yeni gelişme');
+  assert.equal(context.resolveNumberedNewsFollowup('2. gündem'), 'Haber detayı İkinci haber');
 
   const queryStart = html.indexOf('function buildSearchQuery(query){');
   const queryEnd = html.indexOf('async function searchWeb(query)', queryStart);

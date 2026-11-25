@@ -3,7 +3,7 @@
 <!-- omgithub:readme:start -->
 ## 🚀 Build, play, and remix with OMGithub
 
-**Created using [OMGithub.com](https://go.ondev.store/).**
+**Remixed using [OMGithub.com](https://go.ondev.store/).**
 
 [![OMGithub](https://img.shields.io/badge/OMGithub-Open%20project-orange?style=for-the-badge)](https://go.ondev.store/uraserbl-beep/PlayGround)
 [![GitHub](https://img.shields.io/badge/GitHub-Source-181717?logo=github&style=for-the-badge)](https://github.com/uraserbl-beep/PlayGround)
@@ -15,6 +15,7 @@
 - 🐛 [Report an issue](https://github.com/uraserbl-beep/PlayGround/issues).
 - 👤 [Explore the creator's projects](https://go.ondev.store/uraserbl-beep).
 - 🌍 [Create with OMGithub](https://go.ondev.store/).
+- 🧬 [Explore the remix source](https://github.com/uraserbl-beep/PlayGround/tree/8178b970aa2c35b4cd2b32bbab4f4a0649f4b204).
 <!-- omgithub:readme:end -->
 
 ## Web search setup

@@ -168,10 +168,9 @@
       backdrop-filter: blur(7px);
       opacity: 0;
       visibility: hidden;
-      pointer-events: none;
       transition: opacity 0.2s ease, visibility 0s linear 0.2s;
     }
-    .overlay.show { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 0.2s ease, visibility 0s linear 0s; }
+    .overlay.show { opacity: 1; visibility: visible; transition: opacity 0.2s ease, visibility 0s; }
     .panel {
       width: min(470px, 100%);
       padding: clamp(22px, 4vw, 34px);
@@ -416,11 +415,6 @@
       return Math.max(min, Math.min(max, value));
     }
 
-    // Keep the ship above the dash button and touch hint on short screens.
-    function playerBottomInset(height) {
-      return Math.max(160, Math.min(200, height * 0.2));
-    }
-
     function rand(min, max) {
       return min + Math.random() * (max - min);
     }
@@ -511,7 +505,7 @@
       canvas.height = Math.round(height * state.dpr);
       ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
       state.playerR = clamp(Math.min(width, height) * 0.028, 12, 18);
-      state.playerY = height - playerBottomInset(height);
+      state.playerY = height - Math.max(62, Math.min(110, height * 0.13));
       state.playerX = clamp(state.playerX || width / 2, state.playerR, width - state.playerR);
       state.targetX = clamp(state.targetX || state.playerX, state.playerR, width - state.playerR);
       for (const asteroid of state.asteroids) {
@@ -553,7 +547,7 @@
       state.particles = [];
       state.playerX = state.width / 2;
       state.targetX = state.playerX;
-      state.playerY = state.height - playerBottomInset(state.height);
+      state.playerY = state.height - Math.max(62, Math.min(110, state.height * 0.13));
       state.hudScore = -1;
       state.hudShields = -1;
       state.hudLevel = -1;
@@ -641,12 +635,11 @@
       ui.overlay.classList.add('show');
       ui.overlay.setAttribute('aria-hidden', 'false');
       if (kind !== 'ready') {
-        // Move focus after the overlay is painted so keyboard users land on the action.
+        // The overlay is visibility:hidden until the show class lands, so wait a frame
+        // before moving focus into the dialog.
         requestAnimationFrame(() => {
           if (!ui.overlay.classList.contains('show')) return;
-          try { ui.primary.focus({ preventScroll: true }); } catch (_) {
-            try { ui.primary.focus(); } catch (_) { /* focus is optional */ }
-          }
+          try { ui.primary.focus({ preventScroll: true }); } catch (_) { /* focus is optional */ }
         });
       }
     }
@@ -674,9 +667,9 @@
         ui.level.textContent = String(state.level);
         state.hudLevel = state.level;
       }
-      if (state.best !== state.hudBest || score > state.hudBest) {
-        ui.best.textContent = String(Math.max(state.best, score)).padStart(4, '0');
-        state.hudBest = Math.max(state.best, score);
+      if (state.best !== state.hudBest) {
+        ui.best.textContent = String(state.best).padStart(4, '0');
+        state.hudBest = state.best;
       }
       const canPause = state.mode === 'running' || state.mode === 'paused';
       ui.pause.disabled = !canPause;
@@ -688,14 +681,10 @@
         state.hudDashReady = dashReady;
       }
       const dashLabel = state.dashCooldown > 0 ? String(Math.ceil(state.dashCooldown)) : '⚡';
-      const dashAria = state.dashCooldown > 0
-        ? 'Dash recharging: ' + Math.ceil(state.dashCooldown) + ' seconds'
-        : (dashReady ? 'Dash' : 'Dash available during a run');
-      const dashKey = dashLabel + '|' + dashAria;
-      if (dashKey !== state.hudDash) {
+      if (dashLabel !== state.hudDash) {
         ui.dash.textContent = dashLabel;
-        ui.dash.setAttribute('aria-label', dashAria);
-        state.hudDash = dashKey;
+        ui.dash.setAttribute('aria-label', dashReady ? 'Dash' : 'Dash recharging: ' + Math.ceil(state.dashCooldown) + ' seconds');
+        state.hudDash = dashLabel;
       }
     }
 

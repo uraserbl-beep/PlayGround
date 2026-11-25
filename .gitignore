@@ -5,10 +5,6 @@ screenshots/
 
 *.pid
 
-.env
-.env.*
-!.env.example
-
 .agents/
 
 .agentsweb/
@@ -20,3 +16,8 @@ screenshots/
 .opencode-web/
 
 node_modules/
+
+# Local secrets
+.env
+.env.local
+.env.*.local

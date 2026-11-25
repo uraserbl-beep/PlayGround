@@ -40,4 +40,4 @@ The local server routes both `/api/search` and `/api/chat`, so the same UI and A
 
 ## Orbit Dash
 
-`game.html` is a self-contained canvas arcade game with keyboard, mouse, and touch controls. Use ←/→ or A/D to steer, Space or Shift to dash, and P or Esc to pause; on touch screens, drag to steer and tap the dash button. The sound toggle lives in the top bar. It is available at `/game` or `/game.html` and linked from the app sidebar. The local server serves it directly; the static build copies it into `dist/`. No external libraries or assets are required.
+`game.html` is a self-contained canvas arcade game with keyboard, mouse, and touch controls. It is available at `/game` or `/game.html` and linked from the app sidebar. The local server serves it directly; the static build copies it into `dist/`. No external libraries or assets are required.

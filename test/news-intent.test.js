@@ -118,7 +118,7 @@ test('agenda categories maintain the visible numbered list for detail follow-ups
 
 test('history filters and technology queries show their matching archive/stream', () => {
   const { context, elements } = loadChronoPulse();
-  assert.equal(context.appState.historyItems.length, 128);
+  assert.equal(context.appState.historyItems.length, 132);
   assert.equal(context.appState.techItems.length, 3);
 
   context.window.selectHistoryCat('Antik Çağ');

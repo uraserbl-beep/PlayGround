@@ -56,6 +56,41 @@ test('ChronoPulse pages are synchronized and use the requested dark link colors'
   assert.match(html, /Kavramların Tarihi/);
 });
 
+test('FoVerse prompt preserves the complete negative examples and Turkish style rules', () => {
+  const rules = html.match(/const FO_VERSE_DIALOGUE_RULES=`([\s\S]*?)`;/)?.[1];
+  assert.ok(rules, 'the complete FoVerse dialogue rules should be defined');
+  for (const requiredText of [
+    'BÖLÜM 6: NEGATİF VERİ SETİ (HALÜSİNASYON VE MANTIK KORUMASI)',
+    'Sıfır Uydurma İlkesi: Sana verilen bilgi tabanında',
+    'Yanlış Öncülü Düzeltme: Kullanıcı sorunun içinde',
+    'Rol Tutarlılığı: Eğer bir oyun içi karakter (NPC)',
+    'Örnek 1: Var Olmayan Bilgi / Uydurma Testi',
+    '1982 yılında Nintendo\'nun çıkardığı \'Super Cyber Mario 2099\' oyunu hakkında bilgi verir misin?',
+    'Örnek 2: Yanlış Tarih / Mantık Hatası Düzeltme',
+    'İstanbul\'un fethinden sonra Fatih Sultan Mehmet Amerika\'yı keşfetti değil mi?',
+    'Örnek 3: Güncel Veri Eksikliği (Dürüstlük Testi)',
+    'Dün akşam oynanan şampiyonluk maçının skoru kaç kaç bitti?',
+    'Örnek 4: Oyun İçi Evren (Lore) ve Gerçek Dünya Ayrımı',
+    'Oyundaki kadim ejderha Ignis hangi gerçek dünya savaşında yer aldı?',
+    'BÖLÜM 7: DOĞAL TÜRKÇE DİYALOG VE ÜSLUP KALIBI',
+    'Cevapları en fazla 3-4 cümlelik akıcı paragraflar veya maddeler halinde ver.',
+    'Bunun yanında',
+    'İşin ilginç yanı',
+    'Kısacası',
+    'Oyuncuya bilgi verdikten sonra sohbeti canlı tutmak için ilgili kısa bir soru veya seçenek sun',
+  ]) assert.ok(rules.includes(requiredText), `missing prompt text: ${requiredText}`);
+  assert.match(html, /\+FO_VERSE_DIALOGUE_RULES/);
+  assert.match(html, /const system=.*FO_VERSE_DIALOGUE_RULES/);
+});
+
+test('all inline scripts remain syntactically valid', () => {
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  assert.ok(scripts.length > 0, 'at least one inline script should be present');
+  for (const [index, match] of scripts.entries()) {
+    assert.doesNotThrow(() => new vm.Script(match[1]), `inline script ${index + 1} should parse`);
+  }
+});
+
 test('clock and agenda/technology refresh timers are configured independently', () => {
   const { intervals } = loadChronoPulse();
   const delays = intervals.map(({ delay }) => delay);

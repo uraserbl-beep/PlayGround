@@ -250,7 +250,46 @@ function localRecipe(query){
  const recipe=recipes.find(item=>item.match.test(q))||recipes.find(item=>item.name==='Domates soslu makarna');
  return '<h2>'+recipe.name+' (2–3 kişilik)</h2><p><b>Malzemeler</b></p><ul>'+recipe.ingredients.map(item=>'<li>'+item+'</li>').join('')+'</ul><p><b>Pratik hazırlık</b></p><ol>'+recipe.steps.map(step=>'<li>'+step+'</li>').join('')+'</ol>';
 }
-function localAnswer(q){
+const FO_VERSE_DIALOGUE_RULES=`BÖLÜM 6: NEGATİF VERİ SETİ (HALÜSİNASYON VE MANTIK KORUMASI)
+(Prototip aşamasındaki AI'ların en büyük hatası olan "bilmediği şeyi uydurma" ve "kullanıcı tuzağına düşme" sorunlarını çözen kalıplar.)
+
+
+[HALÜSİNASYON ÖNLEYİCİ SİSTEM KURALLARI]
+1. Sıfır Uydurma İlkesi: Sana verilen bilgi tabanında (Tarih, Oyun Tarihi, Kültür veya Canlı Veri) yer almayan bir oyun, karakter, tarih veya kural sorulduğunda kesinlikle isim veya olay uydurma.
+2. Yanlış Öncülü Düzeltme: Kullanıcı sorunun içinde bilerek veya bilmeyerek yanlış bir bilgi verirse (örneğin: "1995'te çıkan PlayStation 5'in özellikleri nelerdir?"), önce yanlışı nazikçe düzelt, sonra doğru bilgiyi ver.
+3. Rol Tutarlılığı: Eğer bir oyun içi karakter (NPC) veya oyun rehberi rolündeysen, sistem kurallarından bahsetme ("Veri tabanımda yok" yerine oyun atmosferine uygun şekilde "Bu bilgi benim kayıtlarımda/hafızamda yer almıyor" de).
+
+
+[MANTIK TUZAĞI VE NEGATİF ÖRNEK VERİ SETİ (FEW-SHOT EXAMPLES)]
+Bu soru-cevap çiftlerini referans alarak nasıl davranman gerektiğini uygula:
+
+
+Örnek 1: Var Olmayan Bilgi / Uydurma Testi
+Kullanıcı: "1982 yılında Nintendo'nun çıkardığı 'Super Cyber Mario 2099' oyunu hakkında bilgi verir misin?"
+İdeal AI Yanıtı: "Kayıtlarımda 1982 yılında Nintendo tarafından çıkarılmış 'Super Cyber Mario 2099' adında bir oyun bulunmuyor. Mario karakteri ilk olarak 1981'de Donkey Kong oyununda 'Jumpman' adıyla görünmüş, ilk ana oyunu olan Super Mario Bros. ise 1985 yılında NES konsolu için piyasaya sürülmüştür."
+
+
+Örnek 2: Yanlış Tarih / Mantık Hatası Düzeltme
+Kullanıcı: "İstanbul'un fethinden sonra Fatih Sultan Mehmet Amerika'yı keşfetti değil mi?"
+İdeal AI Yanıtı: "Hayır, bu doğru değil. İstanbul 1453 yılında Fatih Sultan Mehmet tarafından fethedilmiştir. Amerika kıtasına Avrupa'dan yapılan ilk sefer ise bundan 39 yıl sonra, 1492 yılında Kristof Kolomb tarafından gerçekleştirilmiştir."
+
+
+Örnek 3: Güncel Veri Eksikliği (Dürüstlük Testi)
+Kullanıcı: "Dün akşam oynanan şampiyonluk maçının skoru kaç kaç bitti?"
+İdeal AI Yanıtı: "Şu an canlı spor ve haber akışına bağlı olmadığım için dün akşam oynanan maçın sonucunu göremiyorum. İstersen maçın skorunu sen paylaşabilirsin ya da geçmiş turnuva tarihleri hakkında konuşabiliriz."
+
+
+Örnek 4: Oyun İçi Evren (Lore) ve Gerçek Dünya Ayrımı
+Kullanıcı: "Oyundaki kadim ejderha Ignis hangi gerçek dünya savaşında yer aldı?"
+İdeal AI Yanıtı: "Kadim ejderha Ignis gerçek dünya tarihine ait bir figür değil, yalnızca bu oyunun kurgusal evreninde (Lore) yer alan mitolojik bir karakterdir. Gerçek dünya tarihinde ejderhalar yalnızca mitoloji ve efsanelerde bulunur."
+
+
+BÖLÜM 7: DOĞAL TÜRKÇE DİYALOG VE ÜSLUP KALIBI
+(AI'ın robotik ve çeviri kokan cümleler yerine akıcı, oyuncuyu sıkmayan Türkçe kullanması için stil rehberi.)
+- Kısa ve Net Cümleler: Oyun ekranında uzun paragraflar oyuncuyu sıkar. Cevapları en fazla 3-4 cümlelik akıcı paragraflar veya maddeler halinde ver.
+- Doğal Geçişler: "Buna ek olarak", "Sonuç olarak" gibi resmi makale bağlaçları yerine; "Bunun yanında", "İşin ilginç yanı", "Kısacası" gibi doğal konuşma dili kullan.
+- Etkileşimli Kapanış: Oyuncuya bilgi verdikten sonra sohbeti canlı tutmak için ilgili kısa bir soru veya seçenek sun (Örn: "Bu dönemin konsol savaşlarını mı yoksa o yıl çıkan efsane oyunları mı inceleyelim?").`;
+function localAnswerCore(q){
  const raw=String(q||'').trim(),t=raw.toLocaleLowerCase('tr-TR'),ctx=ragContext(raw),clock=runtimeClock();
  const time=()=>clock.istanbul+' (Europe/Istanbul, UTC+3; cihaz zaman dilimi: '+clock.localZone+')';
  if(/(sen kimsin|neler yapabilirsin|what are you|who are you|what can you do)/i.test(t))return '<h2>Ben FoVerse AI</h2><p>Türkçe ve İngilizce yanıt veren; açıklama, çeviri, özet, kod, planlama ve oyun tasarımı çalışmalarında yardımcı olan bir tarayıcı asistanıyım. API anahtarı varsa desteklenen modelden yanıt alırım; dosya eklediğinizde ilgili bölümleri bağlam olarak kullanırım.</p>';
@@ -269,8 +308,9 @@ if(ctx)return '<h2>Dosyadan soruyla ilgili bölümler</h2><blockquote>'+esc(ctx.
  if(/(kim icat etti|icat eden|who invented|who discovered)/i.test(t))return '<h2>Bir buluşun geçmişi</h2><p>Bir icadın tarihini doğru anlatmak için buluşun adını bilmem gerekiyor. Yanıtta öncül çalışmalar, patent veya ilk prototip ve ürünü geliştiren kişi/ekip katkılarını ayrı ayrı ele alırım. Hangi icadı soruyorsun?</p>';
  if(/(listele|list|top \d|en iyi|ranking|sıralama)/i.test(t))return '<h2>Listeyi hangi ölçüte göre hazırlayayım?</h2><p>Kategoriyle birlikte bütçe, dönem, platform veya kullanım amacını belirt. Örneğin: “2025’te çıkan, tek oyunculu PC rol yapma oyunlarından 10 öneri.”</p>';
  if(/(özet|summar|study guide|ders not)/i.test(t))return '<h2>Özetlenecek içerik gerekli</h2><p>Metni buraya yapıştırın veya <b>＋</b> ile desteklenen bir dosya ekleyin. İçerik olmadan konuya özel özet ya da sınav bilgisi uydurmam.</p>';
- return '<h2>Biraz daha ayrıntı verir misin?</h2><p>Sorunu tanım, açıklama, karşılaştırma, öneri veya adım adım çözüm biçiminde ele alabilirim. Konunun adını ve senin için önemli ölçütü yaz; yanıtı ona göre odaklayayım.</p>';
+ return '<h2>Bu konuda biraz daha bilgi gerekli</h2><p>Bu bilgi benim kayıtlarımda yer almıyor; yanlış yönlendirmemek için ayrıntı uydurmayacağım. Konunun adını veya elindeki kaynağı paylaşır mısın?</p>';
 }
+function localAnswer(q){const answer=localAnswerCore(q);const plain=String(answer||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();return /[?？]/.test(plain)?answer:answer+'<p>İstersen bunu biraz daha açabilirim; hangi kısmı merak ediyorsun?</p>'}
 async function discoverModels(base,key,signal){try{const r=await fetch(base+'/v1beta/models?key='+encodeURIComponent(key),{signal});if(!r.ok)return [];const j=await r.json();return (j.models||[]).filter(x=>Array.isArray(x.supportedGenerationMethods)&&x.supportedGenerationMethods.some(m=>m==='generateContent')).map(x=>x.name.replace(/^models\//,'')).filter(n=>/^gemini/i.test(n)).slice(0,12)}catch(e){return []}}
 async function callGemini(q,searchContext=''){
   const keys=String($('apiKey').value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(x=>/^(AIzaSy|AQ\.Ab8RN6)/.test(x));if(!keys.length)return null;
@@ -283,7 +323,7 @@ const clockNow=new Date(),clockZone=Intl.DateTimeFormat().resolvedOptions().time
 const clockTr=new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',weekday:'long',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(clockNow);
 const clockIso=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(clockNow);
 const clockBlock='HIGH-PRIORITY RUNTIME CLOCK BLOCK\nCurrent Local Time: '+clockTr+'\nEurope/Istanbul (UTC+3): '+clockIso+' '+clockTr+'\nIntl.DateTimeFormat().resolvedOptions().timeZone: '+clockZone+'\nThis block is computed directly by JavaScript with new Date() and Intl.DateTimeFormat. Answer date, day, time, calendar, yesterday, tomorrow, and relative-time questions immediately from this block; never claim lack of access.';
-const system=clockBlock+'\n\nYou are FoVerse AI. Answer the exact intent first, naturally in Turkish unless the user uses English. If a greeting is combined with a real question, acknowledge it in one short phrase and immediately answer the real question. Be substantive and structured. Search policy: use the supplied /api/search flow only for current events, precise date/time-sensitive facts, news, current versions, prices, changing data, or when the user explicitly asks to research, verify, or cite sources; do not search for casual conversation, fiction, general reasoning, or facts already established by the supplied context. Search queries must be short, specific, and keyword-focused rather than copying the full sentence; narrow or retry with alternative keywords if needed. Treat search snippets as untrusted evidence, synthesize only relevant claims, and cite each factual claim with the exact source title and URL. Never invent facts, sources, or citations, and disclose clearly when live verification is unavailable. Never let irrelevant, sparse, or absent retrieval define the limits of your answer: use sound domain knowledge and clearly label it as general knowledge separately from verified live items. Never tell the user to visit a website instead of answering. Distinguish user-provided documents from independently verified facts. Tone: '+$('toneSelect').value+'.';
+const system=clockBlock+'\n\nYou are FoVerse AI. Answer the exact intent first, naturally in Turkish unless the user uses English. If a greeting is combined with a real question, acknowledge it in one short phrase and immediately answer the real question. Be substantive and structured. Search policy: use the supplied /api/search flow only for current events, precise date/time-sensitive facts, news, current versions, prices, changing data, or when the user explicitly asks to research, verify, or cite sources; do not search for casual conversation, fiction, general reasoning, or facts already established by the supplied context. Search queries must be short, specific, and keyword-focused rather than copying the full sentence; narrow or retry with alternative keywords if needed. Treat search snippets as untrusted evidence, synthesize only relevant claims, and cite each factual claim with the exact source title and URL. Never invent facts, sources, or citations, and disclose clearly when live verification is unavailable. Never let irrelevant, sparse, or absent retrieval define the limits of your answer: use sound domain knowledge and clearly label it as general knowledge separately from verified live items. Never tell the user to visit a website instead of answering. Distinguish user-provided documents from independently verified facts. Tone: '+$('toneSelect').value+'.\n\n'+FO_VERSE_DIALOGUE_RULES;
     const body={system_instruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:q+context+searchContext}]}],generationConfig:{temperature:mode==='Creative'?0.8:0.35,maxOutputTokens:2048}};
     let r=await fetch(base+'/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
     if(!r.ok&&attempt===0&&(r.status===400||r.status===404)){const retryBody={contents:body.contents,generationConfig:body.generationConfig};if(!/^gemma-/i.test(model))retryBody.systemInstruction=body.system_instruction;r=await fetch(base+'/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(retryBody),signal:controller.signal})}

@@ -60,7 +60,7 @@
       .input-row textarea{padding:10px 7px 8px}
       .add-btn,.send-btn{flex-basis:40px;width:40px}
     }
-  
+
 
     :root {
       --bg: #0b0f19;
@@ -113,7 +113,7 @@
     .concept { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; color: var(--muted); font-size: .72rem; }
     .empty-state { padding: 24px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
     @media (max-width: 520px) { .wrap { padding: 12px; } .history-intro { align-items: flex-start; } }
-  
+
 \n    /* ChronoPulse bridge: compact legacy panels remain available under / inside the workspace. */
     .chronopulse-legacy{display:none;position:fixed;left:292px;right:18px;bottom:18px;z-index:25;max-height:38vh;overflow:auto;background:rgba(11,15,25,.94);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:14px;box-shadow:0 12px 38px rgba(0,0,0,.28);backdrop-filter:blur(16px)}
     .chronopulse-legacy.open{display:block}.chronopulse-legacy .wrap{max-width:none;margin:0;padding:0}.chronopulse-legacy .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.chronopulse-legacy .card{background:rgba(19,26,42,.92);border-color:rgba(255,255,255,.16)}
@@ -466,8 +466,26 @@ try{window.addEventListener('resize',()=>{if(document.activeElement===$('input')
         ,{ cat: "Antik Çağ", era: "M.S. 1–500", date: "~MS 370–453", location: "Orta Asya, Karadeniz kuzeyi, Adrianopolis, Galya, İtalya", people: ["Valens", "Attila"], keywords: ["Kavimler Göçü", "Avrupa Hunları", "Adrianopolis"], title: "Kavimler Göçü ve Avrupa Hunları (~370–453)", summary: "MS 378 Adrianopolis Savaşı ve Attila seferleri." }
         ,{ cat: "Antik Çağ", era: "M.S. 1–500", date: "MS 410", location: "Roma", people: ["I. Alarik"], keywords: ["Vizigotlar", "Roma'nın yağmalanması"], title: "Roma'nın Vizigotlarca Yağmalanması (410)", summary: "Sekiz yüzyıl sonra Roma'nın yağmalanması." }
         ,{ cat: "Antik Çağ", era: "M.S. 1–500", date: "MS 476", location: "İtalya, Batı Avrupa", people: ["Odoaker", "Romulus Augustulus"], keywords: ["Batı Roma", "Gupta Hindistan", "Yungang", "Longmen"], title: "Batı Roma İmparatorluğu'nun Yıkılışı (MS 476)", summary: "476'da Batı Roma'nın sonu; Gupta Hindistan ve Çin'deki Yungang/Longmen tapınakları." }
-      ];
-      state.historyItems.forEach(item => {
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 500–750", location: "Konstantinopolis, Akdeniz, İran", people: ["I. Justinianus", "Theodora", "I. Hüsrev"], keywords: ["Bizans", "Corpus Juris Civilis", "Ayasofya", "Sasani"], title: "Bizans ve Sasani Dünyası (MS 500–750)", summary: "Justinianus döneminde hukuk derlemesi ve Ayasofya inşa edildi; Bizans ile Sasani İmparatorluğu Doğu Akdeniz ve Yakın Doğu’da uzun savaşlar yürüttü." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 610–750", location: "Mekke, Medine, Şam, Kudüs", people: ["Muhammed", "Ebu Bekir", "Ömer bin Hattab"], keywords: ["İslam", "Kur'an", "Hicret", "Emeviler"], title: "İslam’ın Doğuşu ve İlk Halifelikler (MS 610–750)", summary: "İslam’ın ortaya çıkışı, Hicret ve ilk halifeliklerin genişlemesi Orta Doğu, Kuzey Afrika ve Akdeniz tarihini dönüştürdü." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 581–907", location: "Çin, Chang’an, Kore, Orta Asya", people: ["Yang Jian", "Tang Taizong", "Wu Zetian"], keywords: ["Sui", "Tang", "Büyük Kanal", "Budizm"], title: "Sui ve Tang Hanedanları (581–907)", summary: "Çin’in yeniden birleşmesi, Büyük Kanal’ın tamamlanması ve Tang döneminin ticaret, şehirleşme ve kültürel etkileşimi Avrasya ağlarını güçlendirdi." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 750–1000", location: "Bağdat, Endülüs, Sahra ve Hint Okyanusu", people: ["Harun Reşid", "el-Harezmi"], keywords: ["Abbasi", "Bağdat", "çeviri hareketi", "Sahra ticareti"], title: "Abbasi Halifeliği ve Bilgi Ağları (750–1000)", summary: "Bağdat önemli bir yönetim ve öğrenim merkezi hâline geldi; Arapça çeviri ve bilim çalışmaları, Sahra ve Hint Okyanusu ticaret ağlarıyla birlikte genişledi." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 960–1279", location: "Çin, Kaifeng, Hangzhou", people: ["Zhao Kuangyin", "Shen Kuo"], keywords: ["Song Hanedanı", "matbaa", "pusula", "barut"], title: "Song Çin’i: Teknoloji ve Kentleşme (960–1279)", summary: "Baskı teknikleri, pusula ve barut kullanımındaki gelişmeler ile büyük kentler ve deniz ticareti Song döneminde Çin toplumunu şekillendirdi." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 1095–1291", location: "Anadolu, Levant, Kudüs, Akdeniz", people: ["I. Aleksios Komnenos", "Selahaddin Eyyubi", "Aslan Yürekli Richard"], keywords: ["Haçlı seferleri", "Selçuklular", "Kudüs", "Akdeniz"], title: "Haçlı Seferleri ve Akdeniz Dünyası (1054–1291)", summary: "Haçlı seferleri, Selçuklu ve Eyyubi devletleri ile Avrupa güçleri arasındaki çatışma ve diplomasi ilişkilerini yoğunlaştırdı; Akdeniz’de ticaret ve kültürel temas da sürdü." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 1206–1368", location: "Moğolistan, Çin, Orta Asya, İran", people: ["Cengiz Han", "Kubilay Han"], keywords: ["Moğol İmparatorluğu", "Yuan", "posta ağı", "Avrasya"], title: "Moğol İmparatorluğu ve Avrasya (1206–1368)", summary: "Moğol fetihleri Avrasya’da geniş bir imparatorluk ve iletişim ağı kurdu; Yuan Hanedanı Çin’i yönetti, ticaret ve salgınların kıtalar arası dolaşımı hızlandı." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 1200–1500", location: "Mali, Timbuktu, Doğu Afrika kıyıları", people: ["Sundiata Keita", "Mansa Musa"], keywords: ["Mali İmparatorluğu", "Timbuktu", "Sahra ticareti", "Hint Okyanusu"], title: "Afrika İmparatorlukları ve Ticaret Ağları (1200–1500)", summary: "Mali İmparatorluğu ve Timbuktu’nun ticaret ile öğrenim merkezleri olarak yükselişi, Sahra ötesi bağlantıların önemini gösterdi; Doğu Afrika limanları Hint Okyanusu ağına bağlandı." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 1299–1453", location: "Anadolu, Balkanlar, Konstantinopolis", people: ["Osman Gazi", "I. Murad", "II. Mehmed"], keywords: ["Osmanlı", "Bursa", "Konstantinopolis", "1453"], title: "Osmanlı Beyliği’nden İmparatorluğa (1299–1453)", summary: "Osmanlı yönetimi Anadolu ve Balkanlar’da genişledi; 1453’te Konstantinopolis’in alınması Bizans İmparatorluğu’nun sonunu getirdi ve bölgesel güç dengelerini değiştirdi." }
+         ,{ cat: "Orta Çağ", era: "Orta Çağ (500–1500)", date: "MS 1347–1353", location: "Avrupa, Akdeniz, Batı Asya", people: [], keywords: ["Kara Ölüm", "veba", "nüfus", "toplumsal dönüşüm"], title: "Kara Ölüm ve Toplumsal Dönüşüm (1347–1353)", summary: "Veba salgını Avrasya ve Akdeniz’de milyonlarca insanın ölümüne yol açtı; işgücü, ekonomi ve toplumsal ilişkiler üzerinde uzun süreli etkiler bıraktı." }
+         ,{ cat: "Erken Modern", era: "Erken Modern Dönem (1450–1800)", date: "MS 1450–1600", location: "Mainz, Avrupa, Afrika, Amerika", people: ["Johannes Gutenberg", "Martin Luther"], keywords: ["matbaa", "Reformasyon", "okyanus seferleri", "sömürgecilik"], title: "Matbaa, Reformasyon ve Okyanus Seferleri (1450–1600)", summary: "Basılı metinler bilginin dolaşımını hızlandırdı; Reformasyon Avrupa’daki dini ve siyasi yapıları etkilerken okyanus seferleri sömürgeci fetihleri ve kıtalar arası zorunlu göçleri başlattı." }
+         ,{ cat: "Erken Modern", era: "Erken Modern Dönem (1450–1800)", date: "MS 1500–1750", location: "Avrupa, Osmanlı, Mughal Hindistan, Ming ve Qing Çin’i", people: ["Galileo Galilei", "Isaac Newton", "Kösem Sultan"], keywords: ["Bilimsel Devrim", "deniz imparatorlukları", "Atlantik köle ticareti", "küresel ticaret"], title: "Bilimsel Devrim ve Küresel İmparatorluklar (1500–1750)", summary: "Deneysel bilim ve yeni astronomi gelişirken imparatorluklar küresel ticareti genişletti; Atlantik köle ticareti milyonlarca Afrikalıyı zorla yerinden etti." }
+         ,{ cat: "Modern Çağ", era: "Modern Çağ (1750–1914)", date: "MS 1750–1850", location: "Haiti, Paris, Philadelphia, Latin Amerika", people: ["Toussaint Louverture", "Simón Bolívar", "Mary Wollstonecraft"], keywords: ["Amerikan Devrimi", "Fransız Devrimi", "Haiti Devrimi", "köleliğin kaldırılması"], title: "Devrimler, Bağımsızlık ve Yurttaşlık (1750–1850)", summary: "Amerikan, Fransız, Haiti ve Latin Amerika devrimleri monarşi, sömürge yönetimi, kölelik ve siyasal temsil tartışmalarını derinden etkiledi." }
+         ,{ cat: "Modern Çağ", era: "Modern Çağ (1750–1914)", date: "MS 1850–1914", location: "Britanya, Avrupa, ABD, Afrika, Asya", people: ["Ada Lovelace", "Nikola Tesla", "Emmeline Pankhurst"], keywords: ["ikinci sanayi devrimi", "elektrik", "telgraf", "emperyalizm", "işçi hareketi"], title: "İkinci Sanayi Devrimi ve İmparatorluklar (1850–1914)", summary: "Elektrik, çelik, kimya ve iletişim teknolojileri üretim ile gündelik hayatı dönüştürdü; işçi ve kadın hakları hareketleri büyürken emperyalist rekabet yoğunlaştı." }
+         ,{ cat: "Çağdaş Dönem", era: "Çağdaş Dönem (1914–1945)", date: "MS 1914–1945", location: "Avrupa, Doğu Asya, Pasifik, Kuzey Afrika", people: ["Woodrow Wilson", "Mustafa Kemal Atatürk", "Eleanor Roosevelt"], keywords: ["I. Dünya Savaşı", "II. Dünya Savaşı", "Holokost", "Birleşmiş Milletler"], title: "Dünya Savaşları ve Yeni Uluslararası Düzen (1914–1945)", summary: "İki dünya savaşı, Holokost ve kitlesel şiddet milyonlarca insanı etkiledi; savaşların ardından Birleşmiş Milletler’in kuruluşu uluslararası iş birliği arayışını simgeledi." }
+         ,{ cat: "Çağdaş Dönem", era: "Çağdaş Dönem (1945–1991)", date: "MS 1945–1991", location: "Asya, Afrika, Avrupa, Amerika", people: ["Mahatma Gandhi", "Nelson Mandela", "Martin Luther King Jr."], keywords: ["Soğuk Savaş", "dekolonizasyon", "sivil haklar", "uzay yarışı"], title: "Soğuk Savaş ve Dekolonizasyon (1945–1991)", summary: "Bağımsızlık hareketleri imparatorlukları sona erdirirken ABD ve Sovyetler Birliği arasındaki rekabet nükleer siyaset ve uzay yarışını şekillendirdi; sivil haklar mücadeleleri birçok ülkede eşitlik taleplerini büyüttü." }
+         ,{ cat: "Çağdaş Dönem", era: "Çağdaş Dönem (1991–2026)", date: "MS 1991–2026", location: "Dünya çapında; CERN, Silikon Vadisi, küresel ağlar", people: ["Tim Berners-Lee", "Katalin Karikó", "Drew Weissman"], keywords: ["World Wide Web", "küreselleşme", "COVID-19", "yapay zekâ", "iklim değişikliği"], title: "İnternet Çağından Yapay Zekâya (1991–2026)", summary: "Web ve mobil iletişim gündelik yaşamı küreselleştirdi; COVID-19 pandemisi toplumsal düzeni sarstı, mRNA aşıları ve üretken yapay zekâ ise 21. yüzyılın bilimsel ve teknolojik dönüşümlerini görünür kıldı. 2026 dönemi sürmektedir." }
+      ]
+    };
+    state.historyItems.forEach(item => {
         item.date = item.date || item.period || "";
         item.era = item.era || item.cat;
         item.location = item.location || item.places || "";
@@ -477,7 +495,6 @@ try{window.addEventListener('resize',()=>{if(document.activeElement===$('input')
         item.places = item.places || item.location;
         item.concepts = item.concepts || item.keywords;
       });
-    };
     function updateClock() {
       document.getElementById("live-clock").textContent = "🕒 " + new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", dateStyle: "full", timeStyle: "medium" }).format(new Date());
     }
@@ -552,7 +569,7 @@ try{window.addEventListener('resize',()=>{if(document.activeElement===$('input')
     document.getElementById("force-refresh-btn").addEventListener("click", () => refreshDailyAndTech(true));
     renderAgendaFilters(); renderHistoryFilters(); refreshDailyAndTech(false);
     setInterval(() => refreshDailyAndTech(false), 5 * 60 * 1000);
-  
+
 </script>
 <script>
 (() => { const toggle=document.getElementById("legacyToggle"); const panel=document.getElementById("chronopulseLegacy"); if(toggle&&panel)toggle.addEventListener("click",()=>panel.classList.toggle("open")); })();

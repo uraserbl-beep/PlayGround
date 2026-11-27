@@ -95,7 +95,7 @@
         { tag: "Web & Sistemler", title: "Hızlı Tarayıcı Uygulamaları ve Yerel Araçlar", detail: "Düşük gecikmeli ve modüler yazılım mimarileri ön planda." }
       ],
       historyItems: [
-        { cat: "Tarih Öncesi", period: "~3,3 milyon yıl önce – MÖ 10.000", title: "Taş Aletler ve İnsanlığın Uzun Başlangıcı", summary: "İlk taş aletlerden Homo sapiens’in Afrika’da ortaya çıkışına ve kıtalara yayılışına uzanan Paleolitik dönem. Tarihleme yeni bulgularla değişebilir.", places: "Doğu Afrika (Olduvai, Koobi Fora); Güney Afrika; Levant; Avrasya; Sahul", concepts: ["Paleolitik", "avcı-toplayıcılık", "ateş", "göç", "Homo sapiens"] },
+        { cat: "Tarih Öncesi", date: "~3,3 milyon yıl önce – MÖ 10.000", period: "~3,3 milyon yıl önce – MÖ 10.000", title: "Taş Aletler ve İnsanlığın Uzun Başlangıcı", summary: "İlk taş aletlerden Homo sapiens’in Afrika’da ortaya çıkışına ve kıtalara yayılışına uzanan Paleolitik dönem. Tarihleme yeni bulgularla değişebilir.", places: "Doğu Afrika (Olduvai, Koobi Fora); Güney Afrika; Levant; Avrasya; Sahul", people: ["Homo habilis", "Homo erectus", "Homo sapiens"], keywords: ["Paleolitik", "avcı-toplayıcılık", "ateş", "göç", "Homo sapiens"], concepts: ["Paleolitik", "avcı-toplayıcılık", "ateş", "göç", "Homo sapiens"] },
         { cat: "Tarih Öncesi", period: "~MÖ 10.000 – MÖ 3.500", title: "Neolitik Dönüşüm: Tarım ve Yerleşik Yaşam", summary: "Farklı bölgelerde birbirinden bağımsız gelişen tarım ve hayvan evcilleştirme, kalıcı yerleşimleri ve yeni toplumsal örgütlenme biçimlerini doğurdu.", places: "Bereketli Hilal (Göbeklitepe, Jericho); Çin’in Sarı Irmak ve Yangtze havzaları; Yeni Gine; Mezoamerika; Andlar", concepts: ["Neolitik", "tarım", "yerleşiklik", "artı ürün", "evcilleştirme"] },
         { cat: "İlk Uygarlıklar", period: "MÖ ~3.500 – MÖ 1.200", title: "Kentler, Yazı ve Tunç Çağı Ağları", summary: "Kent yönetimi, yazı ve kayıt sistemleri gelişti; uzun mesafeli ticaret ile saray ve tapınak ekonomileri karmaşık toplumları birbirine bağladı.", places: "Sümer ve Akad (Mezopotamya); Uruk; Eski Mısır ve Nil; İndus Vadisi (Harappa, Mohenjo-daro); Ege ve Anadolu", concepts: ["çivi yazısı", "hiyeroglif", "kent devleti", "tunç", "ticaret"] },
         { cat: "İlk Uygarlıklar", period: "MÖ ~1.200 – MÖ 600", title: "Demir Çağı ve Bölgesel İmparatorluklar", summary: "Demir işçiliğinin yayılması, alfabeler ve yeni siyasal güçler Akdeniz’den Güney Asya’ya uzanan dünyayı dönüştürdü.", places: "Doğu Akdeniz; Yeni Asur ve Babil; Fenike kıyıları; İsrail ve Yahuda; Ganj Ovası; Zhou Çin’i", concepts: ["demir işçiliği", "alfabe", "imparatorluk", "ticaret kolonileri", "para"] },
@@ -159,13 +159,21 @@
     window.togglePanel = function(id) { const el = document.getElementById(id); if (el) el.classList.toggle("open"); };
     function historySearchMatches(rawText) {
       const normalized = rawText.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i");
-      const stopWords = new Set(["tarih", "tarihi", "tarihce", "ozet", "ozetle", "liste", "tablo", "soru", "sor", "yaz", "hikaye", "senaryo", "sinav", "test", "hakkinda", "bilgi", "goster", "ver", "bir", "icin", "ve", "detay"]);
-      const terms = normalized.split(/[^a-z0-9çğıöşü]+/i).filter(t => t && !stopWords.has(t));
-      const matches = state.historyItems.filter(h => {
-        const haystack = [h.cat, h.period, h.title, h.summary, h.places, ...h.concepts].join(" ").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i");
-        return terms.length === 0 || terms.some(term => haystack.includes(term));
-      });
-      return matches.length ? matches : state.historyItems;
+      const stopWords = new Set(["tarih", "tarihi", "tarihce", "ozet", "ozetle", "liste", "tablo", "soru", "sor", "yaz", "hikaye", "senaryo", "sinav", "test", "hakkinda", "bilgi", "goster", "ver", "bir", "icin", "ve", "detay", "ara", "goster"]);
+      const terms = normalized.split(/[^a-z0-9]+/i).filter(t => t && !stopWords.has(t));
+      if (!terms.length) return [];
+      return state.historyItems.map(h => {
+        const searchable = [h.cat, h.period, h.title, h.summary, h.places, ...(h.people || []), ...(h.keywords || h.concepts || [])].join(" ").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i");
+        let score = 0;
+        terms.forEach(term => {
+          if ((h.title || "").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)) score += 5;
+          if ((h.period || "").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)) score += 4;
+          if ((h.places || "").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)) score += 3;
+          if ((h.people || []).join(" ").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term)) score += 3;
+          if (searchable.includes(term)) score += 1;
+        });
+        return { item: h, score };
+      }).filter(match => match.score > 0).sort((a, b) => b.score - a.score).map(match => match.item);
     }
     function runQuery(rawText) {
       const q = rawText.trim().toLowerCase();
@@ -174,7 +182,11 @@
         const idx = parseInt(numMatch[1], 10) - 1; const found = state.lastShownAgenda[idx];
         return found ? `<strong>#${idx + 1} ${found.cat} — ${found.title}</strong><br/>${found.summary}<br/><span class="meta">Durum: ${found.currentState}</span>` : `Listedeki ${idx + 1}. kayıt bulunamadı.`;
       }
-      if (/(tarih|tarihçe|antik|orta çağ|modern|icat|köken|tarih öncesi|2026)/i.test(q)) return "<strong>🏛️ Tarih Arşivi · Tarih Öncesi → 2026:</strong><br/>" + state.historyItems.map(m => `• <strong>[${m.period} · ${m.cat}] ${m.title}:</strong> ${m.summary} <span class=\"meta\">Mekânlar: ${m.places} · Kavramlar: ${m.concepts.join(", ")}</span>`).join("<br/>");
+      if (/(tarih|tarihçe|antik|orta çağ|modern|icat|köken|tarih öncesi|2026)/i.test(q)) {
+        const matches = historySearchMatches(rawText);
+        if (!matches.length) return "<strong>🏛️ Tarih Arşivi:</strong> Bu sorguyla arşivde eşleşen gerçek bir kayıt bulunamadı.";
+        return "<strong>🏛️ Tarih Arşivi · Tarih Öncesi → 2026:</strong><br/>" + matches.map(m => `• <strong>[${m.period} · ${m.cat}] ${m.title}:</strong> ${m.summary} <span class=\"meta\">Mekânlar: ${m.places} · Kavramlar: ${(m.keywords || m.concepts).join(", ")}</span>`).join("<br/>");
+      }
       if (/(teknoloji|yapay zeka|ai|çip|robot|uzay|gelişen)/i.test(q)) return "<strong>⚡ Gelişen Teknoloji:</strong><br/>" + state.techItems.map(t => `• <strong>[${t.tag}] ${t.title}:</strong> ${t.detail}`).join("<br/>");
       return "Gündem, teknoloji veya tarihçe için anahtar kelime ya da sayısal gündem sırası (örn: '2. gündem detayı') girebilirsiniz.";
     }

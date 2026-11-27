@@ -157,6 +157,16 @@
     }
     document.getElementById("history-search").addEventListener("input", renderHistory);
     window.togglePanel = function(id) { const el = document.getElementById(id); if (el) el.classList.toggle("open"); };
+    function historySearchMatches(rawText) {
+      const normalized = rawText.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i");
+      const stopWords = new Set(["tarih", "tarihi", "tarihce", "ozet", "ozetle", "liste", "tablo", "soru", "sor", "yaz", "hikaye", "senaryo", "sinav", "test", "hakkinda", "bilgi", "goster", "ver", "bir", "icin", "ve", "detay"]);
+      const terms = normalized.split(/[^a-z0-9çğıöşü]+/i).filter(t => t && !stopWords.has(t));
+      const matches = state.historyItems.filter(h => {
+        const haystack = [h.cat, h.period, h.title, h.summary, h.places, ...h.concepts].join(" ").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i");
+        return terms.length === 0 || terms.some(term => haystack.includes(term));
+      });
+      return matches.length ? matches : state.historyItems;
+    }
     function runQuery(rawText) {
       const q = rawText.trim().toLowerCase();
       const numMatch = q.match(/(\d+)\s*\.?\s*(gündem|haber|madde|sıra|detay)?/);

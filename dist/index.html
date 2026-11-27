@@ -166,8 +166,8 @@
 <script>
 
 (()=>{'use strict';
-const syncViewportHeight=()=>document.documentElement.style.setProperty('--app-height',Math.round(window.visualViewport?.height||window.innerHeight)+'px');
-syncViewportHeight();window.addEventListener('resize',syncViewportHeight);window.visualViewport?.addEventListener('resize',syncViewportHeight);
+const syncViewportHeight=()=>{if(typeof document==='undefined'||!document.documentElement||!document.documentElement.style)return;document.documentElement.style.setProperty('--app-height',Math.round(window.visualViewport?.height||window.innerHeight)+'px')};
+syncViewportHeight();if(typeof window.addEventListener==='function')window.addEventListener('resize',syncViewportHeight);window.visualViewport?.addEventListener('resize',syncViewportHeight);
 const $=id=>document.getElementById(id); const memory={};
 const store={get(k,f=null){try{const v=localStorage.getItem(k);return v===null?f:v}catch(e){return memory[k]??f}},set(k,v){try{localStorage.setItem(k,v);return true}catch(e){memory[k]=v;return false}}};
 

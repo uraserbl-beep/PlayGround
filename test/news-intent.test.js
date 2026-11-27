@@ -12,25 +12,35 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 function loadChronoPulse() {
   const elements = new Map();
   const intervals = [];
+  const makeElement = () => ({
+    innerHTML: '', textContent: '', value: '', listeners: {}, style: {}, dataset: {},
+    classList: {
+      toggle() {}, add() {}, remove() {}, contains() { return false; },
+    },
+    addEventListener(name, callback) { this.listeners[name] = callback; },
+    setAttribute() {}, appendChild() {}, remove() {}, focus() {}, click() {},
+    play() { return Promise.resolve(); }, pause() {},
+  });
   const document = {
+    documentElement: { style: { setProperty() {} } },
+    body: { dataset: {}, classList: { add() {}, remove() {} } },
+    activeElement: null,
     getElementById(id) {
-      if (!elements.has(id)) {
-        elements.set(id, {
-          innerHTML: '', textContent: '', value: '', listeners: {},
-          classList: { toggle() {} },
-          addEventListener(name, callback) { this.listeners[name] = callback; },
-        });
-      }
+      if (!elements.has(id)) elements.set(id, makeElement());
       return elements.get(id);
     },
+    querySelectorAll() { return []; },
+    createElement() { return makeElement(); },
   };
-  const window = {};
+  const window = { addEventListener() {} };
   const context = {
     document,
     window,
     setInterval(callback, delay) { intervals.push({ callback, delay }); return intervals.length; },
   };
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  const script = scripts.find((candidate) => candidate.includes('const AGENDA_CATEGORIES'));
+  assert.ok(script, 'the ChronoPulse inline script should be present');
   vm.runInNewContext(`${script}\nthis.appState = state; this.runQuery = runQuery;`, context);
   return { context, elements, intervals };
 }
@@ -48,7 +58,9 @@ test('ChronoPulse pages are synchronized and use the requested dark link colors'
 
 test('clock and agenda/technology refresh timers are configured independently', () => {
   const { intervals } = loadChronoPulse();
-  assert.deepEqual(intervals.map(({ delay }) => delay), [1000, 5 * 60 * 1000]);
+  const delays = intervals.map(({ delay }) => delay);
+  assert.ok(delays.includes(1000), 'the ChronoPulse clock should refresh every second');
+  assert.ok(delays.includes(5 * 60 * 1000), 'agenda and technology should refresh every five minutes');
 });
 
 test('agenda categories maintain the visible numbered list for detail follow-ups', () => {

@@ -83,7 +83,7 @@ test('agenda categories maintain the visible numbered list for detail follow-ups
 
 test('history filters and technology queries show their matching archive/stream', () => {
   const { context, elements } = loadChronoPulse();
-  assert.equal(context.appState.historyItems.length, 95);
+  assert.equal(context.appState.historyItems.length, 124);
   assert.equal(context.appState.techItems.length, 3);
 
   context.window.selectHistoryCat('Antik Çağ');
@@ -97,6 +97,9 @@ test('history filters and technology queries show their matching archive/stream'
   context.window.selectHistoryCat('Bilim, Teknoloji ve İcatlar');
   assert.match(elements.get('history-list').innerHTML, /DNA'nın Çift Sarmal Yapısı/);
   assert.match(elements.get('tech-list').innerHTML, /Yeni Nesil Çipler/);
+  context.window.selectHistoryCat('Mitoloji ve Evrensel Kültür');
+  assert.match(elements.get('history-list').innerHTML, /Yunan Mitolojisi/);
+  assert.equal(context.window.historySearchMatches('mitoloji')[0].cat, 'Mitoloji ve Evrensel Kültür');
 });
 
 test('manual refresh updates status and query submission renders the selected result', () => {
